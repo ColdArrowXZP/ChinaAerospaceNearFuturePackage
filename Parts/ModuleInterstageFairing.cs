@@ -34,6 +34,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
 
         public override void OnStart(StartState state)
         {
+            topNodeName = SettingLoader.CASNFP_GlobalSettings.GetNode("Parts_Setting").GetNode("InterstageFairing_Setting").GetValue("topNodeName");
             partOldRotation = part.gameObject.transform.localRotation;
             partOldScale = part.gameObject.transform.localScale;
             GameEvents.onPartAttach.Add(ThisPartAttach);
@@ -120,31 +121,5 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
                 Debug.Log("变形体加载完成");
             }
         }
-        Transform targetObject;
-        Vector3 riginalScale;
-        LineRenderer myPS;
-        Material material;
-        float time;
-        [KSPEvent(guiName = "开火", guiActive =true, isPersistent = true)]
-        public void Fire()
-        {
-            Vector3 vector = new Vector3(part.gameObject.transform.localPosition.x, part.gameObject.transform.localPosition.y+5, part.gameObject.transform.localPosition.z);
-            GameObject obj = SettingLoader.UIBundle.LoadAsset<GameObject>("testFX");
-            GameObject thisObject = Instantiate<GameObject>(obj, vector, Quaternion.Euler(90,0,0));
-            thisObject.transform.SetParent(part.gameObject.transform);
-            myPS = thisObject.GetComponentInChildren<LineRenderer>();
-            material = myPS.material;
-        }
-        
-        private void Update()
-        {
-            if (material == null)
-            {
-                return;
-            }
-            time += Time.deltaTime;
-            material.mainTextureOffset = new Vector2(time*10,0);  
-        }
-        
     }
 }

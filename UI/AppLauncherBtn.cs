@@ -20,18 +20,17 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
         /// </summary>
         private  ApplicationLauncherButton _LauncherButton;
         public  ApplicationLauncherButton LauncherButton { get => _LauncherButton; }
-        protected string _AppBtnPngName;
         /// <summary>
         /// 设置启动按钮生成时的方法，可以继承改写。
         /// </summary>
         protected virtual void Awake()
         {
             ConfigNode node = SettingLoader.CASNFP_GlobalSettings;
-            _AppBtnPngName = node.GetNode("UI_Setting").GetValue("AppBtnPngName");
+            string _AppBtnPngName = node.GetNode("UI_Setting").GetValue("AppBtnPngName");
             //设置按钮背景图片
-            if (icon == null && SettingLoader.UIBundle != null)
+            if (icon == null && SettingLoader.AppBundle != null)
             {
-                icon = SettingLoader.UIBundle.LoadAsset<Texture2D>(_AppBtnPngName);
+                icon = SettingLoader.AppBundle.LoadAsset<Texture2D>(_AppBtnPngName);
             }
             // 注册监听事件
             GameEvents.onGUIApplicationLauncherReady.Add(OnGUIApplicationLauncherReady);

@@ -11,14 +11,10 @@ using KSP.UI.Screens.Settings.Controls;
 using System;
 using KSP.UI.Util;
 using System.Collections.Generic;
+using ChinaAeroSpaceNearFuturePackage.Parts;
 
 namespace ChinaAeroSpaceNearFuturePackage.UI
 {
-    public class MessageBoxClass 
-    {
-        [DllImport("User32.dll", SetLastError = true, ThrowOnUnmappableChar = true, CharSet = CharSet.Auto)]
-        public static extern int MessageBox(IntPtr handle, String message, String title, int type);  
-    }
     [KSPAddon(KSPAddon.Startup.FlightAndEditor,false)]
     public class CASNFP_UI : AppLauncherBtn
     {
@@ -52,17 +48,7 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
             
             popupDialog = PopupDialog.SpawnPopupDialog(new Vector2(0.5f, 0.5f),new Vector2(0.5f, 0.5f),multi,true,HighLogic.UISkin,false, "CASNFP_UI");
             Debug.Log("PopupDialog.SpawnPopupDialog 被调用");
-            //int returnNumber = MessageBoxClass.MessageBox(IntPtr.Zero, "中国近未来预设按钮，是否删除按钮", "中国近未来Mod",1);
-            //Debug.Log("没选择不应该出现这个信息，这个信息应该在选择后出现");
-            //switch (returnNumber)
-            //{
-            //    case 1:
-            //        ApplicationLauncher.Instance.RemoveModApplication(LauncherButton);
-            //            break;
-            //    default:
-            //        LauncherButton.SetFalse();
-            //        break;
-            //}
+            
         }
 
         private void onSelected()
