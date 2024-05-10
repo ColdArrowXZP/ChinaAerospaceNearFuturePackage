@@ -72,6 +72,10 @@
       <HintPath>..\..\..\测试平台\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>..\..\..\测试平台\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="UnityEngine.ParticleSystemModule">
       <HintPath>..\..\..\测试平台\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
       <Private>False</Private>
@@ -98,7 +102,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="FX\Casnfp_CZ11LaunchSmoke.cs" />
+    <Compile Include="FX\CZ11LaunchSmoke.cs" />
     <Compile Include="Parts\ModuleInterstageFairing.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
       <AutoGen>True</AutoGen>
