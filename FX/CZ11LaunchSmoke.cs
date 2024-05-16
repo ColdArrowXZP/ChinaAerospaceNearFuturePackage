@@ -14,7 +14,6 @@ namespace ChinaAeroSpaceNearFuturePackage.FX
         ParticleSystem ps;
         float hight;
         double vesselOriginRadarAltitude;
-        //Vector3 moveTarget;
         static ConfigNode thisNode;
         public void Start() 
         {
@@ -34,16 +33,21 @@ namespace ChinaAeroSpaceNearFuturePackage.FX
         }
         private void OnFlightReady()
         {
-            EngineAction = new Action<bool,ModuleEngines>(SetEngine);
-            EmitAction = new Action<bool>(Emit);
             currentVessel = FlightGlobals.ActiveVessel;
             //这里判断是否有发射筒，如果没有就销毁
-            //if(...)else{Destroy(this);return;} 
+            //if(...)else{Destroy(this);return;}
+            if (currentVessel != null) 
+            {
+                string a = currentVessel.GetDisplayName();
+                if (a!="长征11号") { Debug.Log("当前火箭为"+a+"非长征11号"); return; }
+            }
             if (currentVessel == null)
             {
                 Destroy(this);
                 return;
             }
+            EngineAction = new Action<bool,ModuleEngines>(SetEngine);
+            EmitAction = new Action<bool>(Emit);
             vesselOriginRadarAltitude = currentVessel.radarAltitude;
             Debug.Log(currentVessel.vesselSize);
             hight = currentVessel.vesselSize.x;
@@ -78,7 +82,6 @@ namespace ChinaAeroSpaceNearFuturePackage.FX
         int flag = -1;
         bool flag2 = true;
         float time = 0;
-        //获取工作中的发动机
         private List<ModuleEngines> GetVesselActiveEngines(Vessel vessel)
         {
             List < ModuleEngines > engines = new List <ModuleEngines >();

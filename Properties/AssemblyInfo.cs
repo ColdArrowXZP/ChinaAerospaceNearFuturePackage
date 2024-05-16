@@ -7,9 +7,9 @@ using ChinaAeroSpaceNearFuturePackage;
 // 控制。更改这些特性值可修改
 // 与程序集关联的信息。
 [assembly: AssemblyTitle("ChinaAeroSpaceNearFuturePackage")]
-[assembly: AssemblyDescription("This Assembly is CASNFP Mod controller.")]
+[assembly: AssemblyDescription("This  is CASNFP Mod Assembly.")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("XZP")]
+[assembly: AssemblyCompany("ColdArrowXZP")]
 [assembly: AssemblyProduct("ChinaAeroSpaceNearFuturePackage")]
 [assembly: AssemblyCopyright("Copyright ©  2023")]
 [assembly: AssemblyTrademark("")]

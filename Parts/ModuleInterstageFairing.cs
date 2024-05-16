@@ -19,10 +19,10 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
         string topNodeName = "top";
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "调节部件高度为（米）")]
         [UI_FloatRange(minValue = 0.1f, maxValue = 10f, scene = UI_Scene.Editor)]
-        internal float PartHigh = 1f;
+        public float PartHigh = 1f;
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "调节部件半径为（米）")]
         [UI_FloatRange(minValue = 0.1f, maxValue = 10f, stepIncrement = 0.05f, scene = UI_Scene.Editor)]
-        internal float PartRadius = 0.65f;
+        public float PartRadius = 0.65f;
 
         enum Direction
         {
