@@ -1,1 +1,4 @@
-# ChinaAerospaceNearFuturePackage
+# 中国近未来航天包
+# 版本V1.0.0.0
+# 作者：雪中飘
+# B站：坎巴拉贝鲁斯特
