@@ -1,7 +1,5 @@
 ﻿using UnityEngine;
-using KSP.UI;
 using KSP.UI.Screens;
-using Expansions;
 
 namespace ChinaAeroSpaceNearFuturePackage.UI
 {

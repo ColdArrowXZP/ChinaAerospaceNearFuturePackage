@@ -1,18 +1,4 @@
-﻿
-using UnityEngine;
-using KSP.UI;
-using KSP.UI.Screens;
-using Expansions;
-using Contracts.Predicates;
-using System.Collections;
-using System.Runtime.InteropServices;
-using UnityEngine.UI;
-using KSP.UI.Screens.Settings.Controls;
-using System;
-using KSP.UI.Util;
-using System.Collections.Generic;
-using ChinaAeroSpaceNearFuturePackage.Parts;
-
+﻿using UnityEngine;
 namespace ChinaAeroSpaceNearFuturePackage.UI
 {
     [KSPAddon(KSPAddon.Startup.FlightAndEditor,false)]
