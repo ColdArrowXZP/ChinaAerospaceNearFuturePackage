@@ -10,7 +10,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
     {
         public enum SamleArmState
         {
-            Extend,
+            Extend = 1,
             Retract,
             Moving,
             Sample
@@ -25,6 +25,8 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
         string[] servoHingeTransformName;
         [KSPField(isPersistant = true, guiFormat = "N1", guiActive = true, guiActiveEditor = false, guiName = "机械臂状态")]
         string armStateUIString;
+        [KSPField(isPersistant = false, guiFormat = "N1", guiActive = false, guiActiveEditor = true, guiName = "取样机械臂")]
+        string armEditorSay = "请勿在组装大厅里操作机械臂，避免危害坎巴拉\n工程师安全！\n请水平安装，否则后果不可预测！";
         private SamleArmState armState;
         public SamleArmState ArmState
         {
@@ -34,10 +36,22 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
         Action<PartModule, float> setAngle;
         [KSPField(isPersistant = true)]
         bool isSampleComplete = false;
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = false, guiName = "表取/钻取")]
+        [UI_Toggle(disabledText = "表取", scene = UI_Scene.Flight, enabledText = "钻取", affectSymCounterparts = UI_Scene.Flight)]
+        public bool sampleMode = false;
+
+        [KSPField(isPersistant = true)]
+        public string srfSamplePoint = "";
+        private Transform srfSamplePointObj;
+        [KSPField(isPersistant = true)]
+        public string drillSamplePoint = "";
+        private Transform drillSamplePointObj;
+
         //右键菜单“自动化取样”
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = false, guiName = "取样开关")]
         [UI_Toggle(disabledText = "关闭", scene = UI_Scene.Flight, enabledText = "开始", affectSymCounterparts = UI_Scene.Flight)]
-        public bool startAutoSample = false;
+        public bool startSample = false;
+
         //右键菜单“清空已取得样品”
         [KSPEvent(guiName = "清空已取得样品", guiActiveUncommand = true, active = true, guiActiveUnfocused = true, guiActive = true, guiActiveEditor = false)]
         protected void RestSample()
@@ -58,10 +72,12 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
             {
                 setAngle = new Action<PartModule, float>(SetAngle);
             }
+
             GameEvents.onPartDestroyed.Add(OnPartDestroyed);
             GameEvents.onPartActionUIShown.Add(OnPartActionUIShown);
             GameEvents.onFlightReady.Add(OnFlightReady);
-            Fields["startAutoSample"].OnValueModified += StartAutoSample;
+            Fields["startSample"].OnValueModified += StartSample;
+            Fields["sampleMode"].OnValueModified += SetSampleMode;
             //注册游戏事件//注册按钮监听
             if (HighLogic.LoadedSceneIsFlight)
             {
@@ -111,47 +127,65 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
                     }
                     if (node1 != null && node2 != null && node3 != null && node4 != null)
                     {
-                        armState = new SamleArmState();
-                        armState = SamleArmState.Retract;
+                        if (armState == 0)
+                        {
+                            armState = SamleArmState.Retract;
+                        }
                         SetArmStateUIString();
                         break;
                     }
                 }
 
             }
-
+            Debug.Log("[CASNFP_Arm]OnStart");
         }
-        //右键菜单“自动化取样”监听的方法
-        private void StartAutoSample(object obj)
+
+        private void SetSampleMode(object arg1)
         {
-            if (startAutoSample)
+            if (armState != SamleArmState.Retract) 
+            {
+                if (sampleMode) sampleMode = false;else sampleMode = true;
+            }
+            
+        }
+
+        //右键菜单“自动化取样”监听的方法
+        private void StartSample(object obj)
+        {
+            if (startSample)
             {
                 if (isSampleComplete)
                 {
                     ScreenMessages.PostScreenMessage(Localizer.Format("取样已完成，如需再次取样请清空已取得的样品！", vessel.GetDisplayName()), 5f, ScreenMessageStyle.UPPER_LEFT);
-                    startAutoSample = false;
+                    startSample = false;
                     return;
                 }
                 if (!HighLogic.LoadedSceneIsFlight)
                 {
                     Debug.LogWarning("[CASNFP_Arm]当前场景无法取样");
-                    startAutoSample = false;
+                    startSample = false;
                     return;
                 }
                 if (base.vessel.srfSpeed > 0.10000000149011612)
                 {
                     ScreenMessages.PostScreenMessage(Localizer.Format("#autoLOC_8004352", vessel.GetDisplayName()), 5f, ScreenMessageStyle.UPPER_LEFT);
-                    startAutoSample = false;
+                    startSample = false;
                     return;
                 }
-                StartCoroutine(DoExtend());
-
+                if (armState == SamleArmState.Retract) 
+                {
+                    StartCoroutine(DoExtend());
+                }
             }
-            if (!startAutoSample)
+            if (!startSample)
             {
-                if (armState != SamleArmState.Retract)
+                if (armState != SamleArmState.Retract && armState != SamleArmState.Moving)
                 {
                     StartCoroutine(DoRetract());
+                }
+                else 
+                {
+                    startSample = true;
                 }
             }
         }
@@ -173,25 +207,26 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
                     break;
             }
         }
+
         //控制模组右键菜单
         private void OnPartActionUIShown(UIPartActionWindow data0, Part data1)
         {
-            if (data1 == part && data0 == part.PartActionWindow)
-            {
-                foreach (var item in part.PartActionWindow.ListItems)
-                {
-                    if (item.PartModule.moduleName != this.moduleName) item.gameObject.SetActive(false);
-                }
-            }
+            //if (data1 == part && data0 == part.PartActionWindow)
+            //{
+            //    foreach (var item in part.PartActionWindow.ListItems)
+            //    {
+            //        if (item.PartModule.moduleName != this.moduleName) item.gameObject.SetActive(false);
+            //    }
+            //}
         }
         private IEnumerator DoExtend()
         {
             armState = SamleArmState.Moving;
             SetArmStateUIString();
             setAngle.Invoke(node1, 90);
-            yield return new WaitUntil(() => Math.Abs(node1.currentAngle - 90) <= 0.1f);
+            yield return new WaitUntil(() => Math.Abs(node1CurrentAngle - 90) <= 0.1f);
             setAngle.Invoke(node2, 90);
-            yield return new WaitUntil(() => Math.Abs(node2.currentAngle - 90) <= 0.1f);
+            yield return new WaitUntil(() => Math.Abs(node2CurrentAngle - 90) <= 0.1f);
             armState = SamleArmState.Extend;
             SetArmStateUIString();
         }
@@ -199,35 +234,36 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
         {
             armState = SamleArmState.Moving;
             SetArmStateUIString();
-            if (Math.Abs(node2.currentAngle - 90) > 0.1f)
+            if (clickPointObj != null) Destroy(clickPointObj);
+            if (Math.Abs(node2CurrentAngle - 90) > 0.1f)
             {
                 setAngle.Invoke(node2, 90);
-                yield return new WaitUntil(() => Math.Abs(node2.currentAngle - 90) <= 0.1f);
+                yield return new WaitUntil(() => Math.Abs(node2CurrentAngle - 90) <= 0.1f);
             }
-            if (Math.Abs(node4.currentAngle - node4.launchPosition) > 0.1f)
+            if (Math.Abs(node4CurrentAngle - node4.launchPosition) > 0.1f)
             {
                 setAngle.Invoke(node4, node4.launchPosition);
-                yield return new WaitUntil(() => Math.Abs(node4.currentAngle - node4.launchPosition) <= 0.1f);
+                yield return new WaitUntil(() => Math.Abs(node4CurrentAngle - node4.launchPosition) <= 0.1f);
             }
-            if (Math.Abs(node3.currentAngle - node3.launchPosition) > 0.1f)
+            if (Math.Abs(node3CurrentAngle - node3.launchPosition) > 0.1f)
             {
                 setAngle.Invoke(node3, node3.launchPosition);
-                yield return new WaitUntil(() => Math.Abs(node3.currentAngle - node3.launchPosition) <= 0.1f);
+                yield return new WaitUntil(() => Math.Abs(node3CurrentAngle - node3.launchPosition) <= 0.1f);
 
             }
-            if (Math.Abs(node2.currentAngle - node2.launchPosition) > 0.1f)
+            if (Math.Abs(node2CurrentAngle - node2.launchPosition) > 0.1f)
             {
                 setAngle.Invoke(node2, node2.launchPosition);
-                yield return new WaitUntil(() => Math.Abs(node2.currentAngle - node2.launchPosition) <= 0.1f);
+                yield return new WaitUntil(() => Math.Abs(node2CurrentAngle - node2.launchPosition) <= 0.1f);
             }
-            if (Math.Abs(node1.currentAngle - node1.launchPosition) > 0.1f)
+            if (Math.Abs(node1CurrentAngle - node1.launchPosition) > 0.1f)
             {
                 setAngle.Invoke(node1, node1.launchPosition);
-                yield return new WaitUntil(() => Math.Abs(node1.currentAngle - node1.launchPosition) <= 0.1f);
+                yield return new WaitUntil(() => Math.Abs(node1CurrentAngle - node1.launchPosition) <= 0.1f);
             }
             armState = SamleArmState.Retract;
             SetArmStateUIString();
-            if (clickPointObj != null) Destroy(clickPointObj);
+
         }
 
         //角度setAngle委托方法
@@ -243,6 +279,14 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
         //设置关节间刚体连接
         private void OnFlightReady()
         {
+            if (srfSamplePointObj == null)
+            {
+                srfSamplePointObj = part.gameObject.transform.Find(srfSamplePoint);
+            }
+            if (drillSamplePointObj == null)
+            {
+                drillSamplePointObj = part.gameObject.transform.Find(drillSamplePoint);
+            }
             node2.MovingObject().GetComponent<ConfigurableJoint>().connectedBody = node1.MovingObject().GetComponent<Rigidbody>();
             node3.MovingObject().GetComponent<ConfigurableJoint>().connectedBody = node2.MovingObject().GetComponent<Rigidbody>();
             node4.MovingObject().GetComponent<ConfigurableJoint>().connectedBody = node3.MovingObject().GetComponent<Rigidbody>();
@@ -254,15 +298,23 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
             if (data == part)
             {
                 GameEvents.onFlightReady.Remove(OnFlightReady);
-                GameEvents.onPartDestroyed.Remove(OnPartDestroyed);
                 GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
+                GameEvents.onPartDestroyed.Remove(OnPartDestroyed);
             }
         }
-
-
+        float node1CurrentAngle = 0;
+        float node2CurrentAngle = 0;
+        float node3CurrentAngle = 0;
+        float node4CurrentAngle = 0;
         public override void OnUpdate()
         {
-            if (armState == SamleArmState.Retract || armState == SamleArmState.Moving) return;
+            if (armState == SamleArmState.Moving)
+            {
+                node1CurrentAngle = currentTransformAngle(node1);
+                node2CurrentAngle = currentTransformAngle(node2);
+                node3CurrentAngle = currentTransformAngle(node3);
+                node4CurrentAngle = currentTransformAngle(node4);
+            }
             if (armState == SamleArmState.Extend && armState != SamleArmState.Moving)
             {
                 ScreenMessages.PostScreenMessage(Localizer.Format("请左键选择取样地点", vessel.GetDisplayName()), 1f, ScreenMessageStyle.UPPER_LEFT);
@@ -289,7 +341,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
                         }
                     }
                     if (clickPoint == Vector3.zero) return;//点击地面失败
-                    if (!armCanReach(clickPoint, node1, node2, node3, node4))
+                    if (!armCanReach(sampleMode, clickPoint, node1, node2, node3, node4))
                     {
                         ScreenMessages.PostScreenMessage(Localizer.Format("超出机械臂工作范围，请重新选择取样地点!", vessel.GetDisplayName()), 5f, ScreenMessageStyle.UPPER_LEFT);
                         return;
@@ -317,7 +369,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
                 //右键终止采样
                 if (Input.GetKeyDown(KeyCode.X))
                 {
-                    Fields["startAutoSample"].SetValue(false,this);
+                    Fields["startSample"].SetValue(false, this);
                     ScreenMessages.PostScreenMessage("已中断取样工作，机械臂重置，请稍后！", 5f, ScreenMessageStyle.UPPER_LEFT);
                 }
 
@@ -334,32 +386,60 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
             armState = SamleArmState.Moving;
             SetArmStateUIString();
             setAngle.Invoke(node1, rootAngle);
-            yield return new WaitUntil(() => Math.Abs(node1.currentAngle - rootAngle) < 0.1f);
-            setAngle.Invoke(node3, BAngle);
-            yield return new WaitUntil(() => Math.Abs(node3.currentAngle - BAngle) < 0.1f);
+            yield return new WaitUntil(() => Math.Abs(node1CurrentAngle - rootAngle) < 0.1f);
+            if (BAngle <= 90)
+            {
+                setAngle.Invoke(node3, BAngle);
+                yield return new WaitUntil(() => Math.Abs(node3CurrentAngle - BAngle) < 0.1f);
+            }
+            if (BAngle > 90)
+            {
+                setAngle.Invoke(node3, 90);
+                yield return new WaitUntil(() => Math.Abs(node3CurrentAngle - 90) < 0.1f);
+                setAngle.Invoke(node3, BAngle);
+                yield return new WaitUntil(() => Math.Abs(node3CurrentAngle - (180 - BAngle)) < 0.1f);
+            }
+            if (CAngle <= 90 && CAngle >= -90)
+            {
+                setAngle.Invoke(node4, CAngle);
+                yield return new WaitUntil(() => Math.Abs(node4CurrentAngle - CAngle) < 0.1f);
+            }
+            if (CAngle > 90)
+            {
+                setAngle.Invoke(node4, 90);
+                yield return new WaitUntil(() => Math.Abs(node4CurrentAngle - 90) < 0.1f);
+                setAngle.Invoke(node4, CAngle);
+                yield return new WaitUntil(() => Math.Abs(node4CurrentAngle - (180 - CAngle)) < 0.1f);
+            }
+            if (CAngle < -90)
+            {
+                setAngle.Invoke(node4, -90);
+                yield return new WaitUntil(() => Math.Abs(node4CurrentAngle - (-90)) < 0.1f);
+                setAngle.Invoke(node4, CAngle);
+                yield return new WaitUntil(() => Math.Abs(node4CurrentAngle - (-180 - CAngle)) < 0.1f);
+            }
             setAngle.Invoke(node2, AAngle);
-            yield return new WaitUntil(() => Math.Abs(node2.currentAngle - AAngle) < 0.1f);
-            setAngle.Invoke(node4, CAngle);
-            yield return new WaitUntil(() => Math.Abs(node4.currentAngle - CAngle) < 0.1f);
+            yield return new WaitUntil(() => Math.Abs(node2CurrentAngle - AAngle) < 0.1f);
             armState = SamleArmState.Sample;
             SetArmStateUIString();
             Debug.Log("到达取样点");
             //播放钻取动画
+            
         }
 
         float BAngle;
         float AAngle;
         float CAngle;
         float rootAngle;
-        private bool armCanReach(Vector3 targetPoint, ModuleRoboticRotationServo node1, ModuleRoboticServoHinge node2, ModuleRoboticServoHinge node3, ModuleRoboticRotationServo node4)
+        private bool armCanReach(bool sampleMode, Vector3 targetPoint, ModuleRoboticRotationServo node1, ModuleRoboticServoHinge node2, ModuleRoboticServoHinge node3, ModuleRoboticRotationServo node4)
         {
-
+            Debug.Log("载具与世界坐标系夹角 = "+Vector3.Angle(Vector3.up,vessel.up));
             //计算根物体旋转角度(限制在-90,90度)
             #region
             Vector3 calA = Vector3.ProjectOnPlane(targetPoint - node1.MovingObject().transform.position, node1.MovingObject().transform.up);
             float calAB = Vector3.Angle(calA, -node1.MovingObject().transform.forward);
             Vector3 dirction = Vector3.Cross(calA, -node1.MovingObject().transform.forward);
-            
+
             if (calAB > 90)
             {
                 Debug.Log("取样点超出node1角度限制，重新选点");
@@ -369,22 +449,26 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
             {
                 if (dirction.y < 0)
                 {
-                    rootAngle = node1.currentAngle - calAB;
+                    rootAngle = node1CurrentAngle - calAB;
                 }
                 else
                 {
-                    rootAngle = node1.currentAngle + calAB;
+                    rootAngle = node1CurrentAngle + calAB;
                 }
             }
-            Debug.Log("rootAngle="+rootAngle);
+            Debug.Log("rootAngle=" + rootAngle);
 
             #endregion
 
             //计算目标点与节点1、2能够构成三角形
             #region
-            float distance2to3 = Vector3.ProjectOnPlane((node3.MovingObject().transform.position-node2.MovingObject().transform.position), node2.MovingObject().transform.right) .magnitude;//大臂1长度
+            Quaternion.AngleAxis(rootAngle, node1.MovingObject().transform.up);
+
+            float distance1to2 = Vector3.Distance(node1.MovingObject().transform.position, node2.MovingObject().transform.position);//小臂1长度
+            float distance2to3 = Vector3.ProjectOnPlane((node3.MovingObject().transform.position - node2.MovingObject().transform.position), node2.MovingObject().transform.right).magnitude;//大臂1长度
             float distance3to4 = Vector3.ProjectOnPlane((node4.MovingObject().transform.position - node3.MovingObject().transform.position), node3.MovingObject().transform.right).magnitude;//大臂2长度
-            float targetDistance = Vector3.Distance(node2.MovingObject().transform.position, targetPoint);//计算与目标直线距离（斜边）
+            float targetDistance1 = Vector3.Distance(node2.MovingObject().transform.position, targetPoint);//计算与目标直线距离（斜边）
+            float targetDistance =(float)Math.Sqrt(Math.Pow(distance1to2,2)+Math.Pow(targetDistance1,2)) ;
             Debug.Log(distance2to3 + ";" + distance3to4 + ";" + targetDistance + ";");
             if (distance2to3 + distance3to4 < targetDistance || distance2to3 + targetDistance < distance3to4 || targetDistance + distance3to4 < distance2to3)
             { Debug.Log("取样点超出超出长度限制，请重新选点"); return false; }//两边之和小于第三边。
@@ -392,7 +476,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
             //计算三条边构成的三角形各夹角（cosA = (b2+c2-a2)/(2bc)）
             float calXA = (float)(Math.Acos((Math.Pow(targetDistance, 2) + Math.Pow(distance2to3, 2) - Math.Pow(distance3to4, 2)) / (2 * targetDistance * distance2to3)) * (180 / Math.PI));
             float calXB = Vector3.Angle(targetPoint - node1.MovingObject().transform.position, -node1.MovingObject().transform.up);
-            float calAAngle = calXA-(90-calXB);
+            float calAAngle = calXA - (90 - calXB);
             Debug.Log(calXA + ";" + calXB + ";" + calAAngle + ";");
             if (calAAngle > 90 || calAAngle < 0)
             {
@@ -403,20 +487,30 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
                 AAngle = calAAngle;
             }
             Debug.Log(AAngle);
-            float  calBAngle = (float)(Math.Acos((Math.Pow(distance2to3, 2) + Math.Pow(distance3to4, 2) - Math.Pow(targetDistance, 2)) / (2 * distance2to3 * distance3to4)) * (180 / Math.PI));
-            
-            if (calBAngle >= 180 || calBAngle <= 0)
+
+
+            float calBAngle1 = (float)(Math.Acos((Math.Pow(distance2to3, 2) + Math.Pow(distance3to4, 2) - Math.Pow(targetDistance, 2)) / (2 * distance2to3 * distance3to4)) * (180 / Math.PI));
+            if (sampleMode) //钻取模式
+            {
+                CAngle = 180 - (calBAngle1 - (90 - AAngle));
+            }
+            else  //表取模式
+            {
+                CAngle = (180 - (calBAngle1 - (90 - AAngle))) - 90;
+            }
+            Debug.Log("CAngle=" + CAngle);
+            if (calBAngle1 >= 180 || calBAngle1 <= 0)
             {
                 Debug.Log("取样点超出node3角度限制，重新选点"); return false;
             }
             else
             {
-                BAngle = calBAngle;
+                BAngle = calBAngle1;
             }
             Debug.Log(BAngle);
             //其次计算对机械臂1号臂角度限制
             #region
-            CAngle = node4.MovingObject().transform.rotation.eulerAngles.y - BAngle;
+
 
 
             //float targetDistance2 = Vector3.Distance(node1.transform.position, nodeTargetPos);//计算与目标平面距离[(临边)]
@@ -427,33 +521,59 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
             //所有条件都满足要求，返回true值
             return true;
         }
-        public Vector3 GetMainAxis(string mainAxis)
+        
+        float currentTransformAngle(ModuleRoboticRotationServo servo)
         {
-            Vector3 zero = Vector3.zero;
-            switch (mainAxis)
+            
+            float num = 0f;
+            if (servo.MovingObject() == null)
             {
-                case "Z-":
-                    zero = Vector3.back;
+                return num;
+            }
+            switch (servo.mainAxis)
+            {
+                case "Z":
+                    num = servo.MovingObject().transform.localEulerAngles.z;
                     break;
                 case "Y":
-                    zero = Vector3.up;
-                    break;
-                case "Y-":
-                    zero = Vector3.down;
+                    num = servo.MovingObject().transform.localEulerAngles.y;
                     break;
                 case "X":
-                    zero = Vector3.right;
-                    break;
-                case "X-":
-                    zero = Vector3.left;
-                    break;
-                default:
-                    zero = Vector3.forward;
+                    num = servo.MovingObject().transform.localEulerAngles.x;
                     break;
             }
-            return zero;
+            if (num > 180f)
+            {
+                num -= 360f;
+            }
+            return num;
         }
+        float currentTransformAngle(ModuleRoboticServoHinge servo)
+        {
 
+            float num = 0f;
+            if (servo.MovingObject() == null)
+            {
+                return num;
+            }
+            switch (servo.mainAxis)
+            {
+                case "Z":
+                    num = servo.MovingObject().transform.localEulerAngles.z;
+                    break;
+                case "Y":
+                    num = servo.MovingObject().transform.localEulerAngles.y;
+                    break;
+                case "X":
+                    num = servo.MovingObject().transform.localEulerAngles.x;
+                    break;
+            }
+            if (num > 180f)
+            {
+                num -= 360f;
+            }
+            return num;
+        }
     }
 
 
