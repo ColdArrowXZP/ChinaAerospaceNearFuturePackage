@@ -122,7 +122,8 @@
     <Compile Include="FX\CZ11LaunchSmoke.cs" />
     <Compile Include="FX\CZ2F_EscapeTowerFX.cs" />
     <Compile Include="FX\CZ2F_EscapeTowerFX2.cs" />
-    <Compile Include="Parts\CASNFP_Arm_SampleArm2.cs" />
+    <Compile Include="Parts\CASNFP_RoboticArm.cs" />
+    <Compile Include="Parts\CASNFP_Arm_CE_SampleArm.cs" />
     <Compile Include="Parts\CZ2F_EscapeTower.cs" />
     <Compile Include="Parts\ModuleInterstageFairing.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
@@ -135,7 +136,6 @@
     <Compile Include="Tools&amp;Settings\CASNFP_Globals.cs" />
     <Compile Include="UI\AppLauncherBtn.cs" />
     <Compile Include="UI\CASNFP_UI.cs" />
-    <Compile Include="Parts\CASNFP_Arm_SamleArm.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
