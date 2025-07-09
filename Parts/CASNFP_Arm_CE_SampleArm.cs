@@ -1,16 +1,6 @@
-﻿using Expansions;
-using Expansions. Missions. Editor;
-using Expansions. Serenity;
-using SoftMasking. Samples;
+﻿using Expansions. Serenity;
 using System;
-using System. Collections. Generic;
-using System. Linq;
-using System. Text;
-using System. Threading. Tasks;
 using UnityEngine;
-using UnityEngine. Events;
-using UnityEngine. SceneManagement;
-using KSP;
 using System. Collections;
 
 namespace ChinaAeroSpaceNearFuturePackage. Parts
@@ -30,22 +20,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
 
         public bool isBootSucceed = false;
        
-        public override void OnUpdate ()
-        {
-            base. OnUpdate ();
-            if ( !startSample )
-                return;
-            //检测鼠标左键选取取样点
-            if ( Input.GetMouseButtonDown(0) && !_isMoving && !_isSampling && HighLogic.LoadedSceneIsFlight )
-            {
-                var ray = FlightCamera.fetch.mainCamera.ScreenPointToRay ( Input.mousePosition );
-                RaycastHit hit;
-                if ( Physics.Raycast(ray,out hit ,1000,1<<15) ) //15 = scenery layer(图层)
-                {
-                    StartCoroutine (MoveToPosition(hit.point));
-                }
-            }
-        }
+        
 
         private IEnumerator MoveToPosition (Vector3 targetPos)
         {
