@@ -71,29 +71,18 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
                 }
             }
         }
+
+        
+
+
         //查找并初始化关节模块
         private bool FindServoModules()
         {
             var servoList = new List<BaseServo>();
-            var excludeFields = new HashSet<string> { nameof(startSample), nameof(operationWarning) };// 排除不需要关闭显示的右键菜单字段
             foreach (PartModule module in part.Modules)
             {
                 if (module is BaseServo baseServo)
                 {
-                    foreach (BaseField field in module.Fields)
-                    {
-                        if (!excludeFields.Contains(field.FieldInfo.Name))
-                        {
-                            field.guiActive = false;
-                            field.guiActiveEditor = false;
-                        }
-                    }
-                    foreach (var item in module.Events)
-                    {
-                        item.guiActive = false;
-                        item.guiActiveEditor = false;
-                    }
-
                     string servoName = null;
                     if (module is ModuleRoboticRotationServo rotationServo)
                         servoName = rotationServo.servoTransformName;
