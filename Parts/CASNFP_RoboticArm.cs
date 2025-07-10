@@ -2,7 +2,6 @@
 using Expansions.Serenity;
 using System;
 using System.Collections.Generic;
-using KSP.Localization;
 using System.Collections;
 using Expansions;
 using System.Linq;
@@ -33,28 +32,27 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
         public bool armStartWork = false;
 
         [KSPField(isPersistant = true)]
-        private RoboticArmState _robotiArmState;
+        public RoboticArmState _robotiArmState;
 
         //获取当前机械臂状态，供其他模块调用。
         public RoboticArmState RobotiArmState
         {
-            get 
+            get
             {
-                return _robotiArmState; 
+                return _robotiArmState;
             }
             set
             {
                 _robotiArmState = value;
             }
         }
-        [KSPField (isPersistant = true)]
-        private float[] _originalAngles;//记录发射时的关节角度。
 
-        [KSPField (isPersistant = true)]
-        protected abstract float[] _extendAngles{get;}//记录机械臂伸展时的关节角度。
+        public float[] _originalAngles = new float[] { 1,1,1,1};//记录发射时的关节角度。
+
+        public abstract float[]  ExtendAngles{get;}//记录机械臂伸展时的关节角度。
 
         //检测是否安装了“破土重生”DLC，或者部件cfg中是否含有关节名称设置，没有则不启动这个mod
-        private void Start ()
+        public void Start ()
         {
             if ( !ExpansionsLoader.IsExpansionInstalled ("Serenity") && HighLogic.LoadedSceneIsGame)
             {
@@ -90,6 +88,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
                     GameEvents.onFlightReady.Add (OnFlightReady);
                     GameEvents.onPartDestroyed.Add (OnPartDestroyed);
                     Fields["armStartWork"]. OnValueModified += OnArmStartWorkButtonWasModified;
+                    RobotiArmState = RoboticArmState.Retract; //初始化机械臂状态为收回
                 }
                 else
                 {
@@ -99,10 +98,10 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
             }
         }
 
-        private bool canSetTargetPos = false; //是否可以设置目标位置，默认为false。
+        protected bool canSetTargetPos = false; //是否可以设置目标位置，默认为false。
 
         //监听机械臂状态变化事件
-        private void OnArmStateChange (object arg)
+        protected void OnArmStateChange (object arg)
         {
             switch(RobotiArmState)
             {
@@ -132,7 +131,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
             for ( int i = 0 ; i < _servoModules. Length ; i++ )
             {
                 var servo = _servoModules[i];
-                float extendAngle = _extendAngles[i];
+                float extendAngle = ExtendAngles[i];
 
                 switch ( servo )
                 {
@@ -263,40 +262,41 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
         }
 
         //在场景切换时让机械臂恢复初始状态
-        private void OnGameSceneSwitchRequested (GameEvents. FromToAction<GameScenes, GameScenes> data)
+        protected void OnGameSceneSwitchRequested (GameEvents. FromToAction<GameScenes, GameScenes> data)
         {
-            if ( data. from == GameScenes. FLIGHT && armStartWork)
+            if (data.from == GameScenes.FLIGHT && armStartWork)
             {
-                Debug. Log ("[CASNFP_RoboticArm] Scene switch requested,reset arm state!");
-                armStartWork = false; //重置机械臂工作状态
-                if ( RobotiArmState != RoboticArmState. Retract )
+                Debug.Log("[CASNFP_RoboticArm] Scene switch requested,reset arm state!");
+                Fields["armStartWork"].SetValue(true,this); //重置机械臂工作状态
+                if (RobotiArmState != RoboticArmState.Retract)
                 {
-                   RobotiArmState = RoboticArmState. Retract; //重置机械臂状态为收回
+                    RobotiArmState = RoboticArmState.Retract; //重置机械臂状态为收回
                 }
             }
         }
 
-        private void OnArmStartWorkButtonWasModified (object arg1)
+        public void OnArmStartWorkButtonWasModified (object obj)
         {
-            if ( armStartWork )
+            if (armStartWork)
             {
-                Fields["_robotiArmState"]. OnValueModified += OnArmStateChange;
-                Debug. Log ("[CASNFP_RoboticArm] 机械臂开始工作");
+                Fields["_robotiArmState"].OnValueModified += OnArmStateChange;
+                Debug.Log("[CASNFP_RoboticArm] 机械臂开始工作");
                 //这里可以添加机械臂开始工作的逻辑
-                if ( RobotiArmState != RoboticArmState. Extend )
+                if (RobotiArmState != RoboticArmState.Extend)
                 {
-                    RobotiArmState = RoboticArmState. Extend; //设置机械臂状态为展开
+                    Debug.Log("[CASNFP_RoboticArm] 机械臂展开");
+                    RobotiArmState = RoboticArmState.Extend; //设置机械臂状态为展开
                 }
-                ArmStartWork ();
+                ArmStartWork();
             }
             else
             {
                 //这里可以添加机械臂停止工作的逻辑
-                Debug. Log ("[CASNFP_RoboticArm] 机械臂停止工作");
-                if (RobotiArmState != RoboticArmState.Retract )
-                    RobotiArmState = RoboticArmState. Retract; //设置状态为收回
-                ArmStopWork ();
-                Fields["_robotiArmState"]. OnValueModified -= OnArmStateChange;
+                Debug.Log("[CASNFP_RoboticArm] 机械臂停止工作");
+                if (RobotiArmState != RoboticArmState.Retract)
+                    RobotiArmState = RoboticArmState.Retract; //设置状态为收回
+                ArmStopWork();
+                Fields["_robotiArmState"].OnValueModified -= OnArmStateChange;
             }
         }
 
@@ -374,15 +374,16 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
         }
         
         protected abstract Vector3 targetPosition { get; }//设置目标位置，返回值为目标位置。
-          
-        protected abstract float GetMaxReachDistance ();//获取机械臂的最大作用范围，返回值为最大作用范围。
+
+        //protected abstract float GetMaxReachDistance ();//获取机械臂的最大作用范围，返回值为最大作用范围。
 
         protected struct InverseKinematicsResult
         {
-            public bool success; //是否成功计算逆运动学
-            public float[] angles; //关节角度数组
+            public bool success;
+            public float[] angles;
         }
-        protected abstract InverseKinematicsResult CalculateInverseKinematics (Vector3 targetPos);//计算逆运动学，获返回当前机械臂的关节角度数组，返回值为null表示获取失败。
+
+        protected abstract InverseKinematicsResult CalculateInverseKinematics(Vector3 targetPos);
 
         protected abstract void ArmStartWork ();//机械臂开始工作，子类实现具体功能。
 

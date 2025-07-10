@@ -5,43 +5,31 @@ using System. Collections;
 
 namespace ChinaAeroSpaceNearFuturePackage. Parts
 {
-    public class CASNFP_Arm_CE_SampleArm: CASNFP_RoboticArm
+    public class CASNFP_Arm_CE_SampleArm : CASNFP_RoboticArm
     {
-        //机械臂自由度数量
-        protected override Vector3 targetPosition ()
+        
+        public override float[] ExtendAngles => new float[4] { 0, 0,90, 0 };
+
+        protected override Vector3 targetPosition => new Vector3(1,1,1);
+
+        protected override void ArmStartWork()
         {
-            Debug. Log ("[CASNFP_Arm_CE_SampleArm] target position is set!");
-            return new Vector3 (0, 0, 0); // 示例位置，实际应根据需要设置
+            Debug.Log("[CASNFP_Arm_CE_SampleArm]ArmStartWork");
         }
 
-        protected override float GetMaxReachDistance ()
+        protected override void ArmStopWork()
         {
-            return 2f;
+            Debug.Log("[CASNFP_Arm_CE_SampleArm]ArmStopWork");
         }
 
-        protected override bool isCanReach (Vector3 targetPos)
+        protected override InverseKinematicsResult CalculateInverseKinematics(Vector3 targetPos)
         {
-            throw new NotImplementedException ();
-        }
-
-        protected override void ArmStartWork ()
-        {
-            if ( !HighLogic.LoadedSceneIsFlight ) return;
-            Material material = new Material (Shader. Find ("KSP/Particles/Additive"));
-            material. SetColor ("_TintColor", Color. red);
-            GameObject clickPointObj = GameObject. CreatePrimitive (PrimitiveType. Sphere);
-            clickPointObj.GetComponent<Collider> (). enabled = false; // 禁用碰撞器
-            clickPointObj. transform. position = base. _servoModules[1].transform.position;
-            clickPointObj. transform. localScale = Vector3. one * 4f;
-            clickPointObj. GetComponent<MeshRenderer> (). material = material;
-            Vector3 targetPosition =  targetPosition();
-            ScreenMessages. PostScreenMessage (armStartWork ? "机械臂开始工作，请注意安全！" : "机械臂停止工作！", 3f, ScreenMessageStyle. UPPER_CENTER);
-
-        }
-
-        protected override float[] CalculateInverseKinematics (Vector3 targetPos)
-        {
-            throw new NotImplementedException ();
+            Debug.Log("[CASNFP_Arm_CE_SampleArm]CalculateInverseKinematics");
+            return new InverseKinematicsResult
+            {
+                success = true,
+                angles = new float[] { 0f, 0f, 0f }
+            };
         }
     }
 }
