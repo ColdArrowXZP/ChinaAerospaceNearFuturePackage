@@ -209,9 +209,9 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
                     switch ( servo )
                     {
                         case ModuleRoboticRotationServo rotationServo:
-                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.1f;
+                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.5f;
                         case ModuleRoboticServoHinge servoHinge:
-                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.1f;
+                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.5f;
                         default:
                             return false;
                     }
@@ -255,6 +255,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
                     yield break; //如果目标角度数组为空或长度不匹配，则直接返回
                 }
                 float targetAngle = _InverseKinematicsResult. angles[i];
+                Debug. Log ($"[CASNFP_RoboticArm] 机械臂关节{i}目标角度: {targetAngle}");
                 switch ( servo )
                 {
                     case ModuleRoboticRotationServo rotationServo:
@@ -273,9 +274,9 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
                     switch ( servo )
                     {
                         case ModuleRoboticRotationServo rotationServo:
-                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.1f;
+                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.5f;
                         case ModuleRoboticServoHinge servoHinge:
-                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.1f;
+                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.5f;
                         default:
                             return false;
                     }
@@ -324,9 +325,9 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
                     switch ( servo )
                     {
                         case ModuleRoboticRotationServo rotationServo:
-                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.1f;
+                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.5f;
                         case ModuleRoboticServoHinge servoHinge:
-                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.1f;
+                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.5f;
                         default:
                             return false;
                     }
@@ -413,6 +414,14 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
                     previous. MovingObject (). GetComponent<Rigidbody> ();
             }
             Debug. Log ("[CASNFP_RoboticArm] 刚体连接设置完成");
+            foreach (var item in _originalAngles)
+            {
+                Debug.Log("originalAngles=" +item);
+            }
+            foreach (var item in ExtendAngles)
+            {
+                Debug.Log("ExtendAngles=" +item);
+            }
         }
 
         //注销监听的事件
@@ -434,6 +443,18 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
             Fields["armStartWork"]. OnValueModified -= OnArmStartWorkButtonWasModified;
         }
 
+        public override void OnSave(ConfigNode node)
+        {
+            base.OnSave(node);
+            Debug.Log("[CASNFP_RoboticArm] Saving arm state to config node.");
+            // 这里可以添加保存机械臂状态的逻辑
+        }
+        public override void OnLoad(ConfigNode node)
+        {
+            base.OnLoad(node);
+            Debug.Log("[CASNFP_RoboticArm] Loading arm state from config node.");
+            // 这里可以添加加载机械臂状态的逻辑
+        }
 
         protected struct InverseKinematicsResult
         {

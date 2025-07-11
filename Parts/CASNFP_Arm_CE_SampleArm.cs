@@ -1,203 +1,229 @@
-﻿using Expansions. Serenity;
-using KSP. Localization;
+﻿
+using Expansions.Serenity;
+using KSP.Localization;
 using System;
-using System. Collections;
-using System. Collections. Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
-namespace ChinaAeroSpaceNearFuturePackage. Parts
+namespace ChinaAeroSpaceNearFuturePackage.Parts
 {
     public class CASNFP_Arm_CE_SampleArm : CASNFP_RoboticArmBase
     {
-        [KSPField]
-        public string extendAngles = "";
+        private const float RadToDeg = 180f / (float)Math.PI;
 
-        private float[] thisExtendAngles ;
-        protected override float[] ExtendAngles 
+        [KSPField]
+        public string extendAngles = "0,0,90,90";
+
+        private float[] thisExtendAngles;
+        protected override float[] ExtendAngles
         {
-            get
-            {
-                return thisExtendAngles;
-            } set
-            {
-                thisExtendAngles = value;
-            }
+            get => thisExtendAngles;
+            set => thisExtendAngles = value;
         }
 
         private InverseKinematicsResult thisInverseKinematicsResult;
         protected override InverseKinematicsResult _InverseKinematicsResult
         {
-            get
-            {
-                return thisInverseKinematicsResult;
-            }
-            set
-            {
-                thisInverseKinematicsResult = value;
-            }
+            get => thisInverseKinematicsResult;
+            set => thisInverseKinematicsResult = value;
         }
-        
-        
-        public override void OnStart (StartState state)
+
+        public override void OnStart(StartState state)
         {
-            base. OnStart (state);
-            // 初始化角度数组
-            if ( string. IsNullOrEmpty (extendAngles) )
-                extendAngles = "0,0,90,0";
+            base.OnStart(state);
+            InitializeArmAngles();
+        }
 
-            string[] angleStrings = extendAngles. Split (new[] { ',' }, StringSplitOptions. RemoveEmptyEntries);
+        private void InitializeArmAngles()
+        {
+            string[] angleStrings = extendAngles.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
 
-            if ( _servoModules == null )
+            if (_servoModules == null)
             {
-                Debug. LogError ("[CASNFP_Arm_CE_SampleArm] _servoModules is null after FindServoModules!");
+                Debug.LogError("[CASNFP_Arm_CE_SampleArm] _servoModules is null!");
                 return;
             }
 
-            if ( angleStrings. Length != _servoModules. Length )
+            thisExtendAngles = angleStrings.Length == _servoModules.Length
+                ? Array.ConvertAll(angleStrings, float.Parse)
+                : new float[_servoModules.Length];
+        }
+
+        public override void OnUpdate()
+        {
+            base.OnUpdate();
+
+            if (!HighLogic.LoadedSceneIsFlight || !canSetTargetPos)
+                return;
+
+            HandleSamplePointSelection();
+        }
+
+        private void HandleSamplePointSelection()
+        {
+            ScreenMessages.PostScreenMessage(
+                Localizer.Format("请左键选择取样地点", vessel.GetDisplayName()),
+                1f, ScreenMessageStyle.UPPER_LEFT);
+
+            if (!Input.GetMouseButtonDown(0))
+                return;
+
+            if (!TryGetValidSamplePoint(out Vector3 clickPoint))
+                return;
+
+            CalculateAndMoveArm(clickPoint);
+        }
+
+        private bool TryGetValidSamplePoint(out Vector3 clickPoint)
+        {
+            clickPoint = Vector3.zero;
+            var ray = FlightGlobals.fetch.mainCameraRef.ScreenPointToRay(Input.mousePosition);
+
+            if (!Physics.Raycast(ray, out RaycastHit hit) || hit.collider == null)
+                return false;
+
+            if (hit.collider.gameObject.layer != 15)
             {
-                Debug. LogError ("[CASNFP_Arm_CE_SampleArm] extendAngles not correct, use default value.");
-                thisExtendAngles = new float[_servoModules. Length];
+                ScreenMessages.PostScreenMessage(
+                    Localizer.Format($"选择取样地点为{hit.collider.gameObject.name}不正确，请选择地面取样点",
+                    vessel.GetDisplayName()),
+                    2f, ScreenMessageStyle.UPPER_RIGHT);
+                return false;
+            }
+
+            clickPoint = hit.point;
+            return true;
+        }
+
+        private void CalculateAndMoveArm(Vector3 targetPos)
+        {
+            thisInverseKinematicsResult = CalculateInverseKinematics(targetPos);
+
+            if (thisInverseKinematicsResult.success)
+            {
+                Debug.Log($"[CASNFP_Arm_CE_SampleArm] 计算成功，角度: {string.Join(", ", thisInverseKinematicsResult.angles)}");
+                armAction.Invoke(this.part, RoboticArmState.Moving);
             }
             else
             {
-                thisExtendAngles = Array. ConvertAll (angleStrings, float. Parse);
+                ScreenMessages.PostScreenMessage(
+                    Localizer.Format("逆运动学计算失败，请检查取样点位置", vessel.GetDisplayName()),
+                    2f, ScreenMessageStyle.UPPER_RIGHT);
             }
         }
 
-
-        public override void OnUpdate ()
+        private InverseKinematicsResult CalculateInverseKinematics(Vector3 targetPos)
         {
-            base. OnUpdate ();
-            if ( !HighLogic. LoadedSceneIsFlight )
-                return;
-            if ( canSetTargetPos )
-            {
-                ScreenMessages. PostScreenMessage (Localizer. Format ("请左键选择取样地点", vessel. GetDisplayName ()), 1f, ScreenMessageStyle. UPPER_LEFT);
-                //设置一个取样点
-                if ( Input. GetMouseButtonDown (0) )
-                {
-                    Camera cam = FlightGlobals. fetch. mainCameraRef;
-                    Ray ray = cam. ScreenPointToRay (Input. mousePosition);
-                    RaycastHit hit;
-                    Vector3 clickPoint = Vector3. zero;
-                    if ( Physics. Raycast (ray, out hit) )
-                    {
-                        if ( hit. collider != null )
-                        {
-                            if ( hit. collider. gameObject. layer ==  15 )
-                            {
-                                clickPoint = hit. point;
-                            }
-                            else
-                            {
-                                ScreenMessages. PostScreenMessage (Localizer. Format ("选择取样地点为" + hit. collider. gameObject. name + "不正确，请选择地面取样点", vessel. GetDisplayName ()), 2f, ScreenMessageStyle. UPPER_RIGHT);
-                                return;
-                            }
-                        }
-                    }
-                    if ( clickPoint == Vector3. zero )
-                        return;//点击地面失败
-                    thisInverseKinematicsResult = CalculateInverseKinematics(clickPoint);
-                    if ( thisInverseKinematicsResult.success )
-                    {
-                        armAction. Invoke (this. part, RoboticArmState. Moving);
-                    }
-                    else
-                    {
-                        ScreenMessages. PostScreenMessage (Localizer. Format ("逆运动学计算失败，请检查取样点位置", vessel. GetDisplayName ()), 2f, ScreenMessageStyle. UPPER_RIGHT);
-                    }
-                }
-            }
-        }
-
-        private  InverseKinematicsResult CalculateInverseKinematics(Vector3 targetPos)
-        {
-            //读取各伺服电机的角度限制
-            List<Vector2> servoSoftLimits = new List<Vector2>();
+            List<Vector2> servoSoftLimits = new List<Vector2>(); 
             foreach (var servoModule in _servoModules)
             {
-                if(servoModule is ModuleRoboticRotationServo servo)
+                if (servoModule is ModuleRoboticRotationServo servo) 
                 {
-                    servoSoftLimits.Add(servoModule.GetSoftLimits("softMinMaxAngles"));
-                    continue;
+                    servoSoftLimits.Add(servoModule.hardMinMaxLimits); 
+                    continue; 
                 }
-                if(servoModule is ModuleRoboticServoHinge servoHinge)
+                if (servoModule is ModuleRoboticServoHinge servoHinge) 
                 {
-                    servoSoftLimits.Add(servoHinge.GetSoftLimits("softMinMaxAngles"));
+                    servoSoftLimits.Add(servoModule.hardMinMaxLimits); 
                     continue;
                 }
             }
-            InverseKinematicsResult result = new InverseKinematicsResult
+                var result = new InverseKinematicsResult
             {
                 success = false,
-                angles = new float[_servoModules. Length]
+                angles = new float[_servoModules.Length]
             };
-            // 逆运动学计算逻辑
-            // 这里需要实现逆运动学算法来计算每个伺服电机的角度
-            //将目标位置转换为相对于机械臂旋转座_servoModules[0]的坐标并计算直线距离
-            Vector3 localTargetPos = _servoModules[0].GetComponent<Rigidbody>().transform. InverseTransformPoint (targetPos);
-            float distanceToTarget = Vector3. Distance (_servoModules[1].servoTransformPosition, localTargetPos);
-            // 当前编辑的嫦娥取样机械臂只有大臂和小臂
-            //计算各大臂的长度和机械臂总长
-            float bigArmLength = Vector3. Distance (_servoModules[1]. servoTransformPosition, _servoModules[2]. servoTransformPosition);
-            float smallArmLength = Vector3. Distance (_servoModules[2]. servoTransformPosition, _servoModules[3]. servoTransformPosition);
-            //计算机械臂作用距离，用C平方=A平方+B平方-2ABcosC求出最大值和最小值
-            Vector2 canRechDistence = new Vector2(
-                Mathf. Abs (bigArmLength - smallArmLength),
-                bigArmLength + smallArmLength
-            );
-            if ( canRechDistence.x>distanceToTarget || distanceToTarget > canRechDistence.y )
-            {
-                Debug. Log ("[CASNFP_Arm_CE_SampleArm]目标点超出机械臂最大长度，请重新选择取样点"); 
-                return result;
-            }
-            //从这里开始计算逆运动学
-            //计算旋转底座_servoModules[0]的角度，要求_servoModules[0].servoTransformPosition在XY平面上且Y轴指向目标点
-            double cosTheta = localTargetPos.y/ Math.Sqrt(localTargetPos.x * localTargetPos.x + localTargetPos.y * localTargetPos.y);
-            Debug.Log(cosTheta);
-            double thetaRad = Math.Acos(cosTheta);
-            Debug.Log($"[CASNFP_Arm_CE_SampleArm] thetaRad: {thetaRad}");
-            // 转换为角度
-            float thetaDeg = (float)(thetaRad * (180 / Math.PI));
-            Debug.Log($"[CASNFP_Arm_CE_SampleArm] thetaDeg: {thetaDeg} float value!");
 
-            if (localTargetPos.x <0)
+            try
             {
-                thetaDeg = thetaDeg * -1;
+                var joint1Transform = part.gameObject.GetChild(_servoModules[1].servoTransformName).transform;
+                Vector3 localTargetPos = joint1Transform.InverseTransformPoint(targetPos);
+
+                // 计算底座旋转角度
+                result.angles[0] = CalculateBaseRotation(localTargetPos, targetPos);
+
+                // 计算臂长
+                float bigArmLength = CalculateArmLength(_servoModules[1], _servoModules[2]);
+                float smallArmLength = CalculateArmLength(_servoModules[2], _servoModules[3]);
+
+                // 计算目标距离
+                float distanceToTarget = localTargetPos.magnitude;
+
+                // 检查可达性
+                if (bigArmLength + smallArmLength <= distanceToTarget)
+                {
+                    Debug.Log("[CASNFP_Arm_CE_SampleArm]目标点超出机械臂最大长度");
+                    return result;
+                }
+
+                // 计算大臂下倾角
+                double bHu = Math.Atan2(Math.Abs(localTargetPos.z), Math.Abs(localTargetPos.y));
+                float bHuAngle = (float)(bHu * RadToDeg);
+
+                // 使用余弦定理计算关节角度
+                float a = distanceToTarget;
+                float b = bigArmLength;
+                float c = smallArmLength;
+
+                float angleA = (float)(Math.Acos((b * b + c * c - a * a) / (2 * b * c)) * RadToDeg);
+                float angleB = (float)(Math.Acos((a * a + b * b - c * c) / (2 * a * b)) * RadToDeg);
+                float angleC = 180 - angleA - angleB;
+
+                // 设置各关节角度
+                for (int i = 0; i < _servoModules.Length; i++)
+                {
+                    switch (i) 
+                    {
+                        case 0:
+                            result.angles[i] = result.angles[0]; // 底座角度
+                            break;
+                            case 1:
+                            result.angles[i] = 180 - angleC - bHuAngle; // 大臂角度
+                            break;
+                            case 2:
+                            result.angles[i] = thisExtendAngles[i] - angleA; // 小臂角度
+                            break;
+                            case 3:
+                            result.angles[i] = thisExtendAngles[i]; // 其他关节保持默认
+                            break;
+                    }
+                }
+
+                // 检查软限制
+                for (int i = 0; i < _servoModules.Length; i++)
+                {
+                    if (result.angles[i] < servoSoftLimits[i].x || result.angles[i] > servoSoftLimits[i].y)
+                    {
+                        Debug.Log($"[CASNFP_Arm_CE_SampleArm] 关节{i}角度超出限制");
+                        return result;
+                    }
+                }
+
+                result.success = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[CASNFP_Arm_CE_SampleArm] 计算错误: {ex.Message}");
             }
 
-            // 计算大臂和小臂的角度
-            float bigArmAngle = Mathf. Atan2 (localTargetPos. y, localTargetPos. x) * Mathf. Rad2Deg;
-            float smallArmAngle = Mathf. Atan2 (localTargetPos. z, localTargetPos. x) * Mathf. Rad2Deg;
-            // 检查角度是否在伺服电机的软限制范围内
-            for (int i = 0; i < _servoModules.Length; i++)
-            {
-                if (i == 0)
-                {
-                    result.angles[i] = thetaDeg; // 基座角度保持不变
-                }
-                else if (i == 1)
-                {
-                    result.angles[i] = bigArmAngle;
-                }
-                else if (i == 2)
-                {
-                    result.angles[i] = smallArmAngle;
-                }
-                else
-                {
-                    result.angles[i] = thisExtendAngles[i]; // 其他伺服电机使用默认角度
-                }
-                // 检查角度是否在软限制范围内
-                if (servoSoftLimits[i].x >= result.angles[i] || result.angles[i] >= servoSoftLimits[i].y)
-                {
-                    Debug.Log($"[CASNFP_Arm_CE_SampleArm] Servo {i} angle out of soft limits: {result.angles[i]} not in {servoSoftLimits[i]}");
-                    return result; // 如果有一个伺服电机的角度超出限制，返回失败
-                }
-            }
-            result.success = true;
             return result;
         }
 
+        private float CalculateBaseRotation(Vector3 localTargetPos, Vector3 worldTargetPos)
+        {
+            double aHu = Math.Atan2(Math.Abs(localTargetPos.x), Math.Abs(localTargetPos.z));
+            float thetaDeg = (float)(aHu * RadToDeg);
+
+            return _servoModules[0].transform.InverseTransformPoint(worldTargetPos).x < 0
+                ? thetaDeg * -1 + thisExtendAngles[0]
+                : thetaDeg + thisExtendAngles[0];
+        }
+
+        private float CalculateArmLength(BaseServo start, BaseServo end)
+        {
+            var startPos = part.gameObject.GetChild(start.servoTransformName).transform.position;
+            var endPos = part.gameObject.GetChild(end.servoTransformName).transform.position;
+            return Vector3.Distance(startPos, endPos);
+        }
     }
 }
