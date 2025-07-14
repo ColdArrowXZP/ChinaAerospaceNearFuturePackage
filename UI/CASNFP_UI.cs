@@ -30,7 +30,7 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
             DialogGUIButton gUIButton1 = new DialogGUIButton("测试", onSelected, false);
             DialogGUIButton gUIButton2 = new DialogGUIButton("关闭", colseWindow);
             DialogGUIBase[] a = { dialog, gUIButton1,gUIButton2 };
-            multi = new MultiOptionDialog("", "","中国航天包控制面板", HighLogic.UISkin, rect,a);
+            multi = new MultiOptionDialog("CASNFP_ControlPanel", "","中国航天包控制面板", HighLogic.UISkin, rect,a);
             
             popupDialog = PopupDialog.SpawnPopupDialog(new Vector2(0.5f, 0.5f),new Vector2(0.5f, 0.5f),multi,true,HighLogic.UISkin,false, "CASNFP_UI");
             Debug.Log("PopupDialog.SpawnPopupDialog 被调用");
