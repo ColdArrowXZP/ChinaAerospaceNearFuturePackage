@@ -177,6 +177,11 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
             if ( RobotArmState == RoboticArmState. Extend )yield break; //如果已经是展开状态，则直接返回
             canSetTargetPos = false; //禁止设置目标位置
             Debug. Log ("[CASNFP_RoboticArm] 机械臂开始展开");
+            if (RobotArmState == RoboticArmState.Moving)
+            {
+                yield return new WaitUntil(() => RobotArmState != RoboticArmState.Moving);
+            }
+            //这里增加展开逻辑，确保机械臂处于可展开状态
             for ( int i = 0 ; i < _servoModules. Length ; i++ )
             {
                 var servo = _servoModules[i];
@@ -204,9 +209,9 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
                     switch ( servo )
                     {
                         case ModuleRoboticRotationServo rotationServo:
-                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.1f;
+                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.5f;
                         case ModuleRoboticServoHinge servoHinge:
-                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.1f;
+                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.5f;
                         default:
                             return false;
                     }
@@ -231,7 +236,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
             if(RobotArmState == RoboticArmState. Moving) yield break; //如果已经是移动状态，则直接返回
             if(RobotArmState != RoboticArmState. Extend)
             {
-                RobotArmState = RoboticArmState. Extend; //如果不是展开状态，则先将机械臂重置为展开状态
+                armAction.Invoke(part,RoboticArmState.Extend); //如果不是展开状态，则先将机械臂重置为展开状态
             }
             canSetTargetPos = false; //禁止设置目标位置
             Debug. Log ("[CASNFP_RoboticArm] 机械臂开始移动至目标点");
@@ -250,6 +255,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
                     yield break; //如果目标角度数组为空或长度不匹配，则直接返回
                 }
                 float targetAngle = _InverseKinematicsResult. angles[i];
+                Debug. Log ($"[CASNFP_RoboticArm] 机械臂关节{i}目标角度: {targetAngle}");
                 switch ( servo )
                 {
                     case ModuleRoboticRotationServo rotationServo:
@@ -268,9 +274,9 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
                     switch ( servo )
                     {
                         case ModuleRoboticRotationServo rotationServo:
-                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.1f;
+                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.5f;
                         case ModuleRoboticServoHinge servoHinge:
-                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.1f;
+                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.5f;
                         default:
                             return false;
                     }
@@ -286,47 +292,48 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
             if ( RobotArmState == RoboticArmState. Retract ) yield break;// 如果已经是收回状态，则直接返回
             canSetTargetPos = false; //禁止设置目标位置
             Debug. Log ("[CASNFP_RoboticArm] 机械臂开始收回");
+            if (RobotArmState == RoboticArmState.Moving)
+            {
+                yield return new WaitUntil (()=>RobotArmState != RoboticArmState.Moving);
+            }
             //先执行展开逻辑，确保机械臂处于可收回状态
             if ( RobotArmState != RoboticArmState. Extend )
             {
                 armAction. Invoke (this. part, RoboticArmState. Extend);
             }
-            else
+
+            //这里可以添加机械臂收回的逻辑
+            for ( int i = 0 ; i < _servoModules. Length ; i++ )
             {
-                //这里可以添加机械臂收回的逻辑
-                for ( int i = 0 ; i < _servoModules. Length ; i++ )
+                var servo = _servoModules[i];
+                float originalAngle = _originalAngles[i];
+                switch ( servo )
                 {
-                    var servo = _servoModules[i];
-                    float originalAngle = _originalAngles[i];
+                    case ModuleRoboticRotationServo rotationServo:
+                        rotationServo. targetAngle = originalAngle; // 设置目标角度为发射时的角度
+                        break;
+                    case ModuleRoboticServoHinge servoHinge:
+                        servoHinge. targetAngle = originalAngle; // 设置目标角度为发射时的角度
+                        break;
+                }
+            }
+            RobotArmState = RoboticArmState. Moving; //设置状态为移动
+            // 等待所有关节到达目标角度
+            yield return new WaitUntil (() =>
+                _servoModules. All (servo =>
+                {
                     switch ( servo )
                     {
                         case ModuleRoboticRotationServo rotationServo:
-                            rotationServo. targetAngle = originalAngle; // 设置目标角度为发射时的角度
-                            break;
+                            return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.5f;
                         case ModuleRoboticServoHinge servoHinge:
-                            servoHinge. targetAngle = originalAngle; // 设置目标角度为发射时的角度
-                            break;
+                            return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.5f;
+                        default:
+                            return false;
                     }
-                }
-                RobotArmState = RoboticArmState. Moving; //设置状态为移动
-                // 等待所有关节到达目标角度
-                yield return new WaitUntil (() =>
-                    _servoModules. All (servo =>
-                    {
-                        switch ( servo )
-                        {
-                            case ModuleRoboticRotationServo rotationServo:
-                                return Math. Abs (rotationServo. currentAngle - rotationServo. targetAngle) < 0.1f;
-                            case ModuleRoboticServoHinge servoHinge:
-                                return Math. Abs (servoHinge. currentAngle - servoHinge. targetAngle) < 0.1f;
-                            default:
-                                return false;
-                        }
-                    }));
-                yield return 1f; // 等待一帧，确保所有关节都已到达目标角度
-                RobotArmState = RoboticArmState. Retract; //重置状态为收回
-            }
-            
+                }));
+            yield return 1f; // 等待一帧，确保所有关节都已到达目标角度
+            RobotArmState = RoboticArmState. Retract; //重置状态为收回  
         }
 
         //在场景切换时让机械臂恢复初始状态
@@ -407,6 +414,15 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
                     previous. MovingObject (). GetComponent<Rigidbody> ();
             }
             Debug. Log ("[CASNFP_RoboticArm] 刚体连接设置完成");
+            foreach (var item in _originalAngles)
+            {
+                Debug.Log("originalAngles=" +item);
+            }
+            foreach (var item in ExtendAngles)
+            {
+                Debug.Log("ExtendAngles=" +item);
+            }
+            Debug. Log ("[CASNFP_RoboticArm] 刚体连接设置完成");
         }
 
         //注销监听的事件
@@ -428,6 +444,18 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
             Fields["armStartWork"]. OnValueModified -= OnArmStartWorkButtonWasModified;
         }
 
+        public override void OnSave(ConfigNode node)
+        {
+            base.OnSave(node);
+            Debug.Log("[CASNFP_RoboticArm] Saving arm state to config node.");
+            // 这里可以添加保存机械臂状态的逻辑
+        }
+        public override void OnLoad(ConfigNode node)
+        {
+            base.OnLoad(node);
+            Debug.Log("[CASNFP_RoboticArm] Loading arm state from config node.");
+            // 这里可以添加加载机械臂状态的逻辑
+        }
 
         protected struct InverseKinematicsResult
         {
