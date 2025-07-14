@@ -31,10 +31,10 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts
         public override void OnStart(StartState state)
         {
             base.OnStart(state);
-            InitializeArmAngles();
+            InitializeExtendAnglesFloat();
         }
 
-        private void InitializeArmAngles()
+        private void InitializeExtendAnglesFloat()
         {
             string[] angleStrings = extendAngles.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
 
