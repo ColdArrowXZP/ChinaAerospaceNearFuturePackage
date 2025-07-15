@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KSP. UI;
+using System;
 using UnityEngine;
 namespace ChinaAeroSpaceNearFuturePackage.UI
 {
@@ -15,7 +16,6 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
             instance = this;
 
         }
-        
         protected override void OnReady()
         {
             
