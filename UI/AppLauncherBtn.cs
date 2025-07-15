@@ -48,9 +48,9 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
             // 生成启动按钮
             if (ApplicationLauncher.Instance != null)
             {
-                _LauncherButton = ApplicationLauncher.Instance.AddModApplication(OnTrue, OnFalse, OnHover, OnHoverOut, OnEnable, OnDisable, ApplicationLauncher.AppScenes.ALWAYS, icon);
+                _LauncherButton = ApplicationLauncher.Instance.AddModApplication(OnTrue, OnFalse, null, null, null, null, ApplicationLauncher.AppScenes.ALWAYS, icon);
                 //设置工具栏按钮之间互斥。
-                ApplicationLauncher.Instance.EnableMutuallyExclusive(_LauncherButton);
+                //ApplicationLauncher.Instance.EnableMutuallyExclusive(_LauncherButton);
             }
             //按钮生成后立即执行该方法
             OnReady();

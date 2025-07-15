@@ -1,7 +1,8 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 namespace ChinaAeroSpaceNearFuturePackage.UI
 {
-    [KSPAddon(KSPAddon.Startup.FlightAndEditor,false)]
+    [KSPAddon(KSPAddon.Startup.Flight,false)]
     public class CASNFP_UI : AppLauncherBtn
     {
         private static CASNFP_UI instance;
@@ -17,18 +18,17 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
         
         protected override void OnReady()
         {
-            Debug.Log("项目预制按钮已生成在：" + LauncherButton.GetAnchor());
-            LauncherButton.SetFalse();
+            
         }
-        public Rect rect = new Rect(0.5f, 0.5f, 200f, 100f);
+        public Rect rect = new Rect(0.5f, 0.5f, 300f, 200f);
         public MultiOptionDialog multi;
         PopupDialog popupDialog;
-        [KSPEvent(guiActive = true,guiName ="",active =true)]
+        //[KSPEvent(guiActive = true,guiName ="",active =true)]
         protected override void OnTrue()
         {
-            DialogGUIBox dialog = new DialogGUIBox(CASNFP_Globals.CASNFP_VERSION+"\n"+"测试UI功能",30f,30f);
-            DialogGUIButton gUIButton1 = new DialogGUIButton("测试", onSelected, false);
-            DialogGUIButton gUIButton2 = new DialogGUIButton("关闭", colseWindow);
+            DialogGUIBox dialog = new DialogGUIBox("版本号：V"+CASNFP_Globals.CASNFP_VERSION+"\n"+"欢迎使用中国航天包",30f,30f);
+            DialogGUIButton gUIButton1 = new DialogGUIButton("测试", OnSelected, false);
+            DialogGUIButton gUIButton2 = new DialogGUIButton("关闭", OnClosed, false);
             DialogGUIBase[] a = { dialog, gUIButton1,gUIButton2 };
             multi = new MultiOptionDialog("CASNFP_ControlPanel", "","中国航天包控制面板", HighLogic.UISkin, rect,a);
             
@@ -37,18 +37,18 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
             
         }
 
-        private void onSelected()
+        private void OnClosed()
+        {
+            ScreenMessages.PostScreenMessage("测试关闭", 2f, ScreenMessageStyle.UPPER_CENTER, Color.red);
+        }
+
+        private void OnSelected()
         {
 
             ScreenMessages.PostScreenMessage("感谢支持", 2f, ScreenMessageStyle.UPPER_CENTER, Color.red);
 
         }
 
-        private void colseWindow()
-        {
-            popupDialog.Dismiss();
-            
-        }
         protected override void OnFalse()
         {
             if (popupDialog != null)
