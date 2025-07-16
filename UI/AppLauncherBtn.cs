@@ -1,5 +1,6 @@
-﻿using UnityEngine;
-using KSP.UI.Screens;
+﻿using KSP.UI.Screens;
+using System. Threading;
+using UnityEngine;
 
 namespace ChinaAeroSpaceNearFuturePackage.UI
 {
@@ -46,9 +47,9 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
         protected void OnGUIApplicationLauncherReady()
         {
             // 生成启动按钮
-            if (ApplicationLauncher.Instance != null)
+            if (ApplicationLauncher.Instance != null && LauncherButton == null)
             {
-                _LauncherButton = ApplicationLauncher.Instance.AddModApplication(OnTrue, OnFalse, null, null, null, null, ApplicationLauncher.AppScenes.ALWAYS, icon);
+                _LauncherButton = ApplicationLauncher.Instance.AddModApplication(OnTrue, OnFalse, OnHover, OnHoverOut, OnEnable, OnDisable, ApplicationLauncher.AppScenes.ALWAYS, icon);
                 //设置工具栏按钮之间互斥。
                 //ApplicationLauncher.Instance.EnableMutuallyExclusive(_LauncherButton);
             }
