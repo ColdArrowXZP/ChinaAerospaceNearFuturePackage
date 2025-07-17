@@ -1,5 +1,4 @@
 ﻿using KSP.UI.Screens;
-using System. Threading;
 using UnityEngine;
 
 namespace ChinaAeroSpaceNearFuturePackage.UI

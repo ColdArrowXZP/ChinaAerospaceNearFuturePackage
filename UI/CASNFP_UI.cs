@@ -3,9 +3,6 @@ using KSP. UI;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine. EventSystems;
-using UnityEngine. UI;
-using UnityEngine. UIElements;
 namespace ChinaAeroSpaceNearFuturePackage.UI
 {
     [KSPAddon(KSPAddon.Startup.Flight,false)]
@@ -23,6 +20,7 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
         public Rect rect = new Rect(0.5f, 0.5f, 300f, 200f);
         public MultiOptionDialog multi;
         PopupDialog popupDialog;
+        public Part[] CASNFP_RoboticArmPart;
         //[KSPEvent(guiActive = true,guiName ="",active =true)]
         protected override void OnTrue()
         {
@@ -39,52 +37,32 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
         protected virtual void StartArmAutoCtrl()
         {
             OnFalse ();
-            CheckVesselIsContianCASNFP_RobArms ();
+            // 启动机械臂自动控制程序
+            StartingArmAutoCtrl ();
         }
-        public Part[] CASNFP_RoboticArmPart;
-        private void CheckVesselIsContianCASNFP_RobArms ()
+        protected virtual void StartingArmAutoCtrl ()
         {
-            Vessel vessel = FlightGlobals.ActiveVessel ?.GetVessel();
-            if (vessel == null)
+            Vessel vessel = FlightGlobals. ActiveVessel?.GetVessel ();
+            if ( vessel == null )
             {
-                MessageBox.Instance.ShowDialog("错误", "当前不存在处于控制中的载具");
+                MessageBox. Instance. ShowDialog ("错误", "当前不存在处于控制中的载具");
                 return;
             }
-            Debug.Log($"检查当前飞船{vessel.name}是否包含CASNFP机械臂组件");
-            List<Part> CASNFP_RoboticArmPartList  = new List<Part>();
-            List<BaseServo> baseServos = vessel.FindPartModulesImplementing<BaseServo>();
-            if (baseServos == null || baseServos.Count == 0)
+            List<Part> CASNFP_RoboticArmPartList = new List<Part> ();
+            List< ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.ModuleCASNFP_RoboticArmPart> moduleCASNFP_RoboticArmParts = vessel. FindPartModulesImplementing< ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.ModuleCASNFP_RoboticArmPart> ();
+            if ( moduleCASNFP_RoboticArmParts == null || moduleCASNFP_RoboticArmParts. Count == 0 )
             {
-                MessageBox.Instance.ShowDialog("错误", "当前载具上没有机械关节组件！");
+                MessageBox. Instance. ShowDialog ("错误", "当前载具上没有CASNFP机械臂组件！");
                 return;
             }
-            else 
+            else
             {
-                foreach (BaseServo servo in baseServos)
+                foreach ( ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm. ModuleCASNFP_RoboticArmPart module in moduleCASNFP_RoboticArmParts )
                 {
-                    //查找含有CASNFP机械臂的部件
-                    if (servo.part.name.IndexOf("CASNFP", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        CASNFP_RoboticArmPartList.Add(servo.part);
-                    }
+                    CASNFP_RoboticArmPartList. Add (module.part);
                 }
 
             }
-            if (CASNFP_RoboticArmPartList.Count == 0)
-            {
-                MessageBox.Instance.ShowDialog("错误", "当前载具上没有CASNFP机械臂组件，把这里搞长一点，看看是不是会自动换行以及换行的效果是怎么样的，如果不行要考虑调整咯~！");
-                return;
-            }
-            else 
-            {
-                CASNFP_RoboticArmPart = CASNFP_RoboticArmPartList.ToArray();
-                MessageBox.Instance.ShowDialog("成功", $"当前载具上包含{CASNFP_RoboticArmPart.Length}个CASNFP机械臂组件，正在启动机械臂自动控制程序");
-                foreach (var item in CASNFP_RoboticArmPart)
-                {
-                    Debug.Log($"含有CASNFP机械臂的组件名称为{item.partName},在飞船上的组件列表中的序列号为{vessel.parts.IndexOf(item)}");
-                }
-            }
-
         }
 
         protected override void OnFalse ()
