@@ -6,6 +6,5 @@
         TianGong, // 吸盘式（天宫）机械臂
         Grabbing, // 抓取式机械臂
         Camera, // 摄像类机械臂
-        Other // 其他类型
     }
 }

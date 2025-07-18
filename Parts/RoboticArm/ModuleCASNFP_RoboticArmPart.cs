@@ -33,9 +33,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 case 2:
                     armPartType = ArmPartType. work;
                     break;
-                case 3:
-                    armPartType = ArmPartType. other;
-                    break;
                 default:
                     throw new ArgumentOutOfRangeException (nameof (thisPartBelongArmType), "Invalid arm type index");
             }
@@ -53,9 +50,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     break;
                 case 3:
                     armType = ArmWorkType. Camera;
-                    break;
-                case 4:
-                    armType = ArmWorkType. Other;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException (nameof (thisPartBelongWorkType), "Invalid arm type index");

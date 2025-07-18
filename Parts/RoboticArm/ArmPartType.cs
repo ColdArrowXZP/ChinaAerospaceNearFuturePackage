@@ -5,6 +5,5 @@
         Base,// 基座
         link,// 连接臂
         work,// 工作臂
-        other// 其他类型
     }
 }
