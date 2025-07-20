@@ -386,7 +386,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts
                     {
                         servoName = servoHinge. servoTransformName;
                         angle = servoHinge. currentAngle;
-                        servoHinge.servoAttachNodes = part. AttachNodes; //确保关节连接到正确的AttachNode
+                        //servoHinge.servoAttachNodes = part. AttachNodes; //确保关节连接到正确的AttachNode
                     }
                     if ( !string. IsNullOrEmpty (servoName) && System. Linq. Enumerable. Contains (_servoHingeTransformNames, servoName) )
                     {

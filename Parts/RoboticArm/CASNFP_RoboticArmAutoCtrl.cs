@@ -1,22 +1,25 @@
 ﻿using ChinaAeroSpaceNearFuturePackage.UI;
-using SoftMasking.Samples;
 using System;
-using System.Collections;
 using System. Collections. Generic;
 using System.Linq;
 using UnityEngine;
-using static KSP.UI.UITreeView;
 namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 {
     public class CASNFP_RoboticArmAutoCtrl : MonoBehaviour
     {
         public Part[] CASNFP_RoboticArmPart;
+        public Action<int,int> onValueChanged;
+        Dictionary<int, originalArm> roboticArmIndex;
         /// <summary>
         /// 机械臂自动控制程序，先区分有几个机械臂，然后让玩家选择一个机械臂进行控制，判断机械臂类型，选择目标位置和目标姿态，控制机械臂到达目标位置和姿态，按计划开始工作。
         /// </summary>
         public void Start ()
         {
-            Dictionary<int,originalArm> roboticArmIndex = CheckAndDistinguishTheArm (CASNFP_RoboticArmPart);
+            if (onValueChanged == null)
+            {
+                onValueChanged += new Action<int,int>(OnValueChanged); 
+            }
+            roboticArmIndex = CheckAndDistinguishTheArm (CASNFP_RoboticArmPart);
             if (roboticArmIndex.Count == 0)
             {
                 MessageBox.Instance.ShowDialog("错误", "没有找到机械臂部件，请检查机械臂部件是否正确连接。");
@@ -24,47 +27,116 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             }
             else
             {
-                foreach (var item in roboticArmIndex)
-                {
-                    Debug.Log($"机械臂索引: {item.Key}, 机械臂类型: {item.Value.armWorkType}, 机械臂部件数量: {item.Value.armParts.Length}");
-                }
-                StartCoroutine(CreatArmSelectionWindow(roboticArmIndex)) ;
-                Debug.Log(currentIndex);
+                CreatArmSelectionWindow(roboticArmIndex);
+                
             }
         }
+        public void OnDestroy() 
+        { 
+            onValueChanged -= new Action<int,int>(OnValueChanged);
+        }
+        private void OnValueChanged(int oldIndex,int newIndex)
+        {
+
+            Debug.Log($"原有机械臂序号是{oldIndex}，新的机械臂序号是{newIndex}");
+                
+        }
+
         /// <summary>
         /// 创建机械臂选择窗口
         /// </summary>
         int currentIndex = 0;
-        IEnumerator CreatArmSelectionWindow(Dictionary<int, originalArm> roboticArmIndex)
+        public int CurrentIndex 
+        {
+            get
+            {
+                return currentIndex;
+            }
+            set
+            {
+                if (currentIndex != value)
+                {
+                    int oldIndex = currentIndex;
+                    int newIndex = value;
+                    currentIndex = value;
+                    OnValueChanged(oldIndex,newIndex);
+                }
+                
+            }
+        }
+        
+        DialogGUIToggleGroup toggleGroup;
+        void CreatArmSelectionWindow(Dictionary<int, originalArm> roboticArmIndex)
         {
             if (MessageBox.Instance != null)
             {
                 Destroy(MessageBox.Instance.gameObject);
             }
             int index = roboticArmIndex.Count;
-            Rect rect = new Rect(0.5f, 0.5f, 300f, 200f);
-            string armSelection = $"在飞船检测到{index}个机械臂，请选择需要控制的机械臂：\n";
+            string armSelection = $"    在飞船检测到{index}个机械臂，请选择需要控制的机械臂：\n";
             foreach (var item in roboticArmIndex)
             {
-                armSelection += $"机械臂索引: {item.Key}, 机械臂类型: {item.Value.armWorkType}, 机械臂部件数量: {item.Value.armParts.Length}\n";
+                armSelection += $"    机械臂索引: {item.Key}, 机械臂类型: {item.Value.armWorkType}\n";
             }
-            armSelection += "请输入机械臂索引：";
-            DialogGUIBox dialog = new DialogGUIBox(armSelection,280,20);
+            armSelection += "    请输入机械臂索引：";
+            var dialogBox = new DialogGUIBox(armSelection,390,100)
+            {
+                guiStyle = new UIStyle(HighLogic.UISkin.box)
+                {
+                    alignment = TextAnchor.MiddleLeft
+                }
+            };
+            DialogGUIButton close = new DialogGUIButton("关闭面板",OnClosed,true);
             DialogGUIToggle[] dialogGUIToggles = new DialogGUIToggle[index];
             for (int i = 0; i < index; i++)
             {
-                dialogGUIToggles[i] = new DialogGUIToggle( false, $"{i}  号", (s) => {currentIndex = i+1; },30,15);
+                dialogGUIToggles[i] = new DialogGUIToggle( false, $"{i+1}  号", onSelected);
             }
-            DialogGUIBase[] a = new DialogGUIBase[dialogGUIToggles.Length + 1];
-            a[0] = dialog;
-            for (int i = 0; i < dialogGUIToggles.Length; i++)
+            toggleGroup = new DialogGUIToggleGroup(dialogGUIToggles);
+            var dialog = new MultiOptionDialog(
+                "CASNFP_ControlPanel",
+                "",
+                "机械臂选择面板",
+                HighLogic.UISkin,
+                new Rect(0.5f, 0.5f, 400f, 200f),
+                new DialogGUIVerticalLayout(
+                    dialogBox,
+                    new DialogGUIHorizontalLayout(toggleGroup),
+                    new DialogGUIHorizontalLayout(
+                        new DialogGUIFlexibleSpace(),close,new DialogGUIFlexibleSpace())
+                )
+            );
+            PopupDialog.SpawnPopupDialog(
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                dialog,
+                false,
+                HighLogic.UISkin
+            );
+        }
+
+        private void OnClosed()
+        {
+            Debug.Log("提示"+$"关闭");
+        }
+
+        private void onSelected(bool arg1)
+        {
+            if (!arg1) return;
+            if (arg1)
             {
-                a[i + 1] = dialogGUIToggles[i];
+                for (int i = 0; i < toggleGroup.children.Count; i++)
+                {
+                    if (toggleGroup.children[i] is DialogGUIToggle)
+                    {
+                        DialogGUIToggle toggle = toggleGroup.children[i] as DialogGUIToggle;
+                        if (toggle.toggle.isOn)
+                        {
+                            CurrentIndex = i + 1;
+                        }
+                    }
+                }
             }
-            MultiOptionDialog multi = new MultiOptionDialog("CASNFP_ControlPanel", "", "中国航天包控制面板", HighLogic.UISkin, rect, a);
-            PopupDialog popupDialog = PopupDialog.SpawnPopupDialog(new Vector2(0.9f, 0.5f), new Vector2(0.7f, 0.5f), multi, true, HighLogic.UISkin, false, "CASNFP_UI");
-            yield return new WaitUntil(() => currentIndex > 0);
         }
 
         /// <summary>
