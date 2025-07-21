@@ -1,4 +1,5 @@
 ﻿using ChinaAeroSpaceNearFuturePackage.UI;
+using KSP. UI;
 using System;
 using System. Collections. Generic;
 using System.Linq;
@@ -20,6 +21,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 onValueChanged += new Action<int,int>(OnValueChanged); 
             }
             roboticArmIndex = CheckAndDistinguishTheArm (CASNFP_RoboticArmPart);
+            
             if (roboticArmIndex.Count == 0)
             {
                 MessageBox.Instance.ShowDialog("错误", "没有找到机械臂部件，请检查机械臂部件是否正确连接。");
@@ -28,7 +30,6 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             else
             {
                 CreatArmSelectionWindow(roboticArmIndex);
-                
             }
         }
         public void OnDestroy() 
@@ -37,7 +38,8 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         }
         private void OnValueChanged(int oldIndex,int newIndex)
         {
-
+            //刷新控制面板内容
+            label. Update ();
             Debug.Log($"原有机械臂序号是{oldIndex}，新的机械臂序号是{newIndex}");
                 
         }
@@ -45,6 +47,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         /// <summary>
         /// 创建机械臂选择窗口
         /// </summary>
+        [KSPField(isPersistant = true)]
         int currentIndex = 0;
         public int CurrentIndex 
         {
@@ -66,22 +69,17 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         }
         
         DialogGUIToggleGroup toggleGroup;
+        DialogGUILabel label;
         void CreatArmSelectionWindow(Dictionary<int, originalArm> roboticArmIndex)
         {
             if (MessageBox.Instance != null)
             {
                 Destroy(MessageBox.Instance.gameObject);
             }
-            int index = roboticArmIndex.Count;
-            string armSelection = $"    在飞船检测到{index}个机械臂，请选择需要控制的机械臂：\n";
-            foreach (var item in roboticArmIndex)
+            int index = roboticArmIndex. Count;
+            label = new DialogGUILabel (flexH: true, GetLabelString, 390f, 0f) 
             {
-                armSelection += $"    机械臂索引: {item.Key}, 机械臂类型: {item.Value.armWorkType}\n";
-            }
-            armSelection += "    请输入机械臂索引：";
-            var dialogBox = new DialogGUIBox(armSelection,390,100)
-            {
-                guiStyle = new UIStyle(HighLogic.UISkin.box)
+                guiStyle = new UIStyle (HighLogic.UISkin.label) 
                 {
                     alignment = TextAnchor.MiddleLeft
                 }
@@ -90,7 +88,8 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             DialogGUIToggle[] dialogGUIToggles = new DialogGUIToggle[index];
             for (int i = 0; i < index; i++)
             {
-                dialogGUIToggles[i] = new DialogGUIToggle( false, $"{i+1}  号", onSelected);
+                bool isCurrent = i == CurrentIndex ? true:false;
+                dialogGUIToggles[i] = new DialogGUIToggle (isCurrent, $"{i + 1}  号", onSelected);
             }
             toggleGroup = new DialogGUIToggleGroup(dialogGUIToggles);
             var dialog = new MultiOptionDialog(
@@ -100,7 +99,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 HighLogic.UISkin,
                 new Rect(0.5f, 0.5f, 400f, 200f),
                 new DialogGUIVerticalLayout(
-                    dialogBox,
+                    label,
                     new DialogGUIHorizontalLayout(toggleGroup),
                     new DialogGUIHorizontalLayout(
                         new DialogGUIFlexibleSpace(),close,new DialogGUIFlexibleSpace())
@@ -115,11 +114,24 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             );
         }
 
-        private void OnClosed()
+        private string GetLabelString ()
         {
-            Debug.Log("提示"+$"关闭");
+            int index = roboticArmIndex. Count;
+            string armSelection = $"    在飞船检测到{index}个机械臂，请选择需要控制的机械臂：\n";
+            foreach ( var item in roboticArmIndex )
+            {
+                armSelection += $"    机械臂序号: {item. Key + 1}, 机械臂类型: {item. Value. armWorkType}\n";
+            }
+            armSelection += $"    当前控制的是{CurrentIndex}号机械臂，可选择其他机械臂。";
+            return armSelection;
         }
 
+        private void OnClosed()
+        {
+            Debug.Log("提示"+$"关闭"+CurrentIndex);
+        }
+
+        
         private void onSelected(bool arg1)
         {
             if (!arg1) return;
@@ -132,7 +144,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                         DialogGUIToggle toggle = toggleGroup.children[i] as DialogGUIToggle;
                         if (toggle.toggle.isOn)
                         {
-                            CurrentIndex = i + 1;
+                            CurrentIndex = i;
                         }
                     }
                 }
