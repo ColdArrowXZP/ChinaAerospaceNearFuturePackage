@@ -7,7 +7,7 @@ using System.Linq;
 using UnityEngine;
 namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 {
-    public class CASNFP_RoboticArmAutoCtrl : MonoBehaviour
+    public class CASNFP_RoboticArmAutoCtrl : PartModule
     {
         [KSPField(isPersistant = true)]
         int currentIndex = 0;
@@ -43,7 +43,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 onValueChanged += new Action<int, int>(OnValueChanged);
             }
             roboticArmIndex = CheckAndDistinguishTheArm(CASNFP_RoboticArmPart);
-
+            
             if (roboticArmIndex.Count == 0)
             {
                 MessageBox.Instance.ShowDialog("错误", "没有找到机械臂部件，请检查机械臂部件是否正确连接。");
@@ -54,7 +54,22 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 CreatArmSelectionWindow(roboticArmIndex);
             }
         }
-
+        public override void OnSave(ConfigNode node)
+        {
+            base.OnSave(node);
+            Debug.LogError("代码ONSAVE开始执行");
+            if (node.SetValue("currentIndex", currentIndex,true))
+            {
+                Debug.Log($"给currentIndex字段赋值为{currentIndex}");
+            }
+            ;
+        }
+        public override void OnLoad(ConfigNode node)
+        {
+            base.OnLoad(node);
+            Debug.LogError("代码ONLoad开始执行");
+            currentIndex = int.Parse(node.GetValue("currentIndex")) ;
+        }
         public void OnDestroy()
         {
             onValueChanged -= new Action<int, int>(OnValueChanged);
