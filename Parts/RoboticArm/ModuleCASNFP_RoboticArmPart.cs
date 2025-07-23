@@ -19,6 +19,8 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             {
             get => armType;
         }
+
+        public int thisPartIndex;
         public override void OnStart (StartState state)
         {
             base. OnStart (state);
@@ -53,6 +55,25 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     break;
                 default:
                     throw new ArgumentOutOfRangeException (nameof (thisPartBelongWorkType), "Invalid arm type index");
+            }
+        }
+
+        public override void OnSave (ConfigNode node)
+        {
+            base. OnSave (node);
+            if ( part. vessel != null )
+            {
+                Vessel vessel = part. vessel;
+                CASNFP_RoboticArmAutoCtrl armAutoCtrl = vessel. FindVesselModuleImplementing<CASNFP_RoboticArmAutoCtrl> ();
+                if ( armAutoCtrl == null )
+                {
+                    Debug. Log ("没找到CASNFP_RoboticArmAutoCtrl;");
+                    return;
+                }
+                thisPartIndex = armAutoCtrl. CurrentIndex;
+                node. SetValue ("CurrentIndex",thisPartIndex,true);
+                bool s = true;
+                Debug. Log ("OnSave已经运行"+part.name+node.HasValue("CurrentIndex")+node.TryGetValue("CurrentIndex",ref s));
             }
         }
 
