@@ -1,18 +1,20 @@
 ﻿using ChinaAeroSpaceNearFuturePackage.UI;
+using CommNet. Network;
 using Expansions.Serenity;
-using KSP. UI;
-using KSP.UI.Screens;
+using KSP. Localization;
 using System;
 using System. Collections. Generic;
-using System.Linq;
-using System.Reflection;
-using TestScripts;
+using System. Linq;
 using UnityEngine;
+using static ChinaAeroSpaceNearFuturePackage. Parts. CASNFP_RoboticArmBase;
 namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 {
     public class CASNFP_RoboticArmAutoCtrl:PartModule
     {
-        int currentIndex = 0;
+        [KSPField(isPersistant = true)]
+        int currentIndex;
+
+        ConfigNode thisSetting = SettingLoader.CASNFP_GlobalSettings;
         public int CurrentIndex
         {
             get
@@ -41,13 +43,22 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 
         public void Start()
         {
-
+            if ( thisSetting != null )
+            {
+                if ( thisSetting. HasValue ("currentIndex") )
+                {
+                    currentIndex = int.Parse (thisSetting. GetValue ("currentIndex"));
+                    Debug. Log ($"读取了currentIndex ={currentIndex}");
+                }
+                else
+                    Debug. Log ($"读取了currentIndex没找到");
+            }
+            CASNFP_RoboticArmPart = CASNFP_UI.Instance.CASNFP_RoboticArmPart;
             if (onValueChanged == null)
             {
                 onValueChanged += new Action<int, int>(OnValueChanged);
             }
             roboticArmIndex = CheckAndDistinguishTheArm(CASNFP_RoboticArmPart);
-            
             if (roboticArmIndex.Count == 0)
             {
                 MessageBox.Instance.ShowDialog("错误", "没有找到机械臂部件，请检查机械臂部件是否正确连接。");
@@ -56,6 +67,8 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             else
             {
                 CreatArmSelectionWindow(roboticArmIndex);
+                if ( CurrentIndex < roboticArmIndex.Count)
+                InitializeCurrentArm (default, roboticArmIndex[CurrentIndex]);
             }
         }
         public void OnDestroy()
@@ -65,17 +78,13 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 
         public override void OnSave(ConfigNode node)
         {
-            Debug.Log(part.name);
-            node.SetValue("CurrentIndex", CurrentIndex, true);
-            Debug.Log("OnSave已经运行     " + node.HasValue("CurrentIndex") + node.GetValue("CurrentIndex"));
-
-        }
-
-        public override void OnLoad(ConfigNode node)
-        {
-            if (!node.HasValue("CurrentIndex")) return;
-            CurrentIndex = int.Parse(node.GetValue("CurrentIndex"));
-            Debug.Log("经过ONload,currentIndex=" + CurrentIndex);
+            if (!HighLogic. LoadedSceneIsFlight ||  base. vessel == null  || !base. vessel. loaded)
+            {
+                return;
+            }
+            if (thisSetting == null)return;
+            thisSetting. SetValue("currentIndex", currentIndex, true);
+            Debug. Log ($"保存了currentIndex ={node.GetValue("currentIndex")}");
         }
         /// <summary>
         /// CurrentIndex数值变化的事件执行逻辑
@@ -122,6 +131,10 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             };
             DialogGUIButton close = new DialogGUIButton("关闭面板", OnClosed, true);
             DialogGUIToggle[] dialogGUIToggles = new DialogGUIToggle[index];
+            if ( CurrentIndex > index )
+            {
+                currentIndex = 0;
+            }
             for (int i = 0; i < index; i++)
             {
                 bool isCurrent = i == CurrentIndex ? true : false;
@@ -164,7 +177,8 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 
         private void OnClosed()
         {
-            Debug.Log("提示" + $"关闭" + CurrentIndex);
+            OnSave (thisSetting);
+            Debug.Log($"机械臂选择面板已关闭");
         }
 
 
@@ -394,18 +408,227 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         /// <param name="oldArm">前一个控制中的机械臂</param>
         /// <param name="newArm">当前正在控制中的机械臂</param>
         float[] servoTargetAnglesAtInitial;//关节生成时角度，记录在cfg中。
-        private void InitializeCurrentArm(originalArm oldArm, originalArm newArm)
+        bool canSetTargetPos = false;
+        originalArm nowCtrlArm;
+        private void InitializeCurrentArm (originalArm oldArm, originalArm newArm)
         {
-            Part[] armParts = newArm.armParts;
-            List<float> servoInitialAngles = new List<float>();
-            foreach (Part part in armParts) 
-            { 
-                if (part.FindModuleImplementing<BaseServo>() is ModuleRoboticServoHinge servoHinge)
+            Debug. Log ($"当前控制的机械臂已实例");
+            ///<summary>
+            ///将前一个机械臂正在执行的动作暂停（暂时先不管旧机械臂的工作逻辑和回收逻辑）
+            ///</summary>
+            Part[] oldArmParts = oldArm. armParts;
+            foreach ( Part part in oldArmParts )
+            {
+                if ( part. FindModuleImplementing<BaseServo> () is ModuleRoboticServoHinge servoHinge )
                 {
-                    servoInitialAngles.Add(servoHinge.modelInitialAngle);
+                    servoHinge. targetAngle = servoHinge. currentAngle;
                 }
             }
+            ///<summary>
+            ///对当前机械臂进行动作控制
+            ///</summary>
+            //首先记录当前机械臂的起始角度，假设新机械臂为首次开始控制
+            nowCtrlArm = newArm;
+            Part[] newArmParts = newArm. armParts;
+            List<float> servoInitialAngles = new List<float> ();
+            foreach ( Part part in newArmParts )
+            {
+                if ( part. FindModuleImplementing<BaseServo> () is ModuleRoboticServoHinge servoHinge )
+                {
+                    servoInitialAngles. Add (servoHinge. targetAngle);
+                }
+            }
+            canSetTargetPos = true;
         }
+            public override void OnUpdate ()
+        {
+            if ( !HighLogic. LoadedSceneIsFlight || !canSetTargetPos )
+                return;
+            if ( nowCtrlArm. armWorkType == ArmWorkType. Sample_ChangE )
+            {
+                Vector3 targetSamplePoint = HandleSampleTarget ();
+            } 
+            if ( nowCtrlArm. armWorkType == ArmWorkType. Walk_TianGong )
+                HandleWalkTargetSelection ();
+            if ( nowCtrlArm. armWorkType == ArmWorkType. Grabbing || nowCtrlArm. armWorkType == ArmWorkType. Camera )
+            {
+                Debug. Log ("机械臂工作类型为抓取或摄像头，暂时没提供相应控制程序");
+                return;
+            }
+        }
+
+        //天宫机械臂取样点设置方法
+        private void HandleWalkTargetSelection ()
+        {
+            Debug. Log ("机械臂工作类型为抓取或摄像头，暂时没提供相应控制程序");
+            canSetTargetPos = false;
+            return;
+        }
+
+        //嫦娥机械臂取样点设置方法
+        private Vector3 HandleSampleTarget ()
+        {
+            ScreenMessages. PostScreenMessage (
+                Localizer. Format ("请左键选择取样地点", vessel. GetDisplayName ()),
+                1f, ScreenMessageStyle. UPPER_LEFT);
+
+            if ( !Input. GetMouseButtonDown (0) )
+                return Vector3. positiveInfinity;
+
+            if ( !TryGetValidSamplePoint (out Vector3 clickPoint) )return Vector3.positiveInfinity;
+            return clickPoint;   
+        }
+
+        private bool TryGetValidSamplePoint (out Vector3 clickPoint)
+        {
+            clickPoint = Vector3. zero;
+            var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
+
+            if ( !Physics. Raycast (ray, out RaycastHit hit) || hit. collider == null )
+                return false;
+
+            if ( hit. collider. gameObject. layer != 15 )
+            {
+                ScreenMessages. PostScreenMessage (
+                    Localizer. Format ($"选择取样地点为{hit. collider. gameObject. name}不正确，请选择地面取样点",
+                    vessel. GetDisplayName ()),
+                    2f, ScreenMessageStyle. UPPER_RIGHT);
+                return false;
+            }
+
+            clickPoint = hit. point;
+            return true;
+        }
+
+        private void CalculateAndMoveArm (Vector3 targetPos)
+        {
+            if ( CalculateInverseKinematics (targetPos,out float[] targetAngles))
+            {
+                Debug. Log ($"[CASNFP_Arm_CE_SampleArm] 计算成功，角度: {string. Join (", ", targetAngles)}");
+                armAction. Invoke (this. part, RoboticArmState. Moving);
+            }
+            else
+            {
+                ScreenMessages. PostScreenMessage (
+                    Localizer. Format ("逆运动学计算失败，请检查取样点位置", vessel. GetDisplayName ()),
+                    2f, ScreenMessageStyle. UPPER_RIGHT);
+            }
+        }
+
+        private bool CalculateInverseKinematics (Vector3 targetPos, out float[] targetAngles)
+        {
+            List<Vector2> servoSoftLimits = new List<Vector2> ();
+            foreach ( var servoModule in _servoModules )
+            {
+                if ( servoModule is ModuleRoboticRotationServo servo )
+                {
+                    servoSoftLimits. Add (servoModule. hardMinMaxLimits);
+                    continue;
+                }
+                if ( servoModule is ModuleRoboticServoHinge servoHinge )
+                {
+                    servoSoftLimits. Add (servoModule. hardMinMaxLimits);
+                    continue;
+                }
+            }
+            var result = new InverseKinematicsResult
+            {
+                success = false,
+                angles = new float[_servoModules. Length]
+            };
+
+            try
+            {
+                var joint1Transform = part. gameObject. GetChild (_servoModules[1]. servoTransformName). transform;
+                Vector3 localTargetPos = joint1Transform. InverseTransformPoint (targetPos);
+
+                // 计算底座旋转角度
+                result. angles[0] = CalculateBaseRotation (localTargetPos, targetPos);
+
+                // 计算臂长
+                float bigArmLength = CalculateArmLength (_servoModules[1], _servoModules[2]);
+                float smallArmLength = CalculateArmLength (_servoModules[2], _servoModules[3]);
+
+                // 计算目标距离
+                float distanceToTarget = localTargetPos. magnitude;
+
+                // 检查可达性
+                if ( bigArmLength + smallArmLength <= distanceToTarget )
+                {
+                    Debug. Log ("[CASNFP_Arm_CE_SampleArm]目标点超出机械臂最大长度");
+                    return result;
+                }
+
+                // 计算大臂下倾角
+                double bHu = Math. Atan2 (Math. Abs (localTargetPos. z), Math. Abs (localTargetPos. y));
+                float bHuAngle = ( float )( bHu * RadToDeg );
+
+                // 使用余弦定理计算关节角度
+                float a = distanceToTarget;
+                float b = bigArmLength;
+                float c = smallArmLength;
+
+                float angleA = ( float )( Math. Acos (( b * b + c * c - a * a ) / ( 2 * b * c )) * RadToDeg );
+                float angleB = ( float )( Math. Acos (( a * a + b * b - c * c ) / ( 2 * a * b )) * RadToDeg );
+                float angleC = 180 - angleA - angleB;
+
+                // 设置各关节角度
+                for ( int i = 0 ; i < _servoModules. Length ; i++ )
+                {
+                    switch ( i )
+                    {
+                        case 0:
+                            result. angles[i] = result. angles[0]; // 底座角度
+                            break;
+                        case 1:
+                            result. angles[i] = 180 - angleC - bHuAngle; // 大臂角度
+                            break;
+                        case 2:
+                            result. angles[i] = thisExtendAngles[i] - angleA; // 小臂角度
+                            break;
+                        case 3:
+                            result. angles[i] = thisExtendAngles[i]; // 其他关节保持默认
+                            break;
+                    }
+                }
+
+                // 检查软限制
+                for ( int i = 0 ; i < _servoModules. Length ; i++ )
+                {
+                    if ( result. angles[i] < servoSoftLimits[i]. x || result. angles[i] > servoSoftLimits[i]. y )
+                    {
+                        Debug. Log ($"[CASNFP_Arm_CE_SampleArm] 关节{i}角度超出限制");
+                        return result;
+                    }
+                }
+
+                result. success = true;
+            }
+            catch ( Exception ex )
+            {
+                Debug. LogError ($"[CASNFP_Arm_CE_SampleArm] 计算错误: {ex. Message}");
+            }
+
+            return result;
+        }
+
+        private float CalculateBaseRotation (Vector3 localTargetPos, Vector3 worldTargetPos)
+        {
+            double aHu = Math. Atan2 (Math. Abs (localTargetPos. x), Math. Abs (localTargetPos. z));
+            float thetaDeg = ( float )( aHu * RadToDeg );
+
+            return _servoModules[0]. transform. InverseTransformPoint (worldTargetPos). x < 0
+                ? thetaDeg * -1 + thisExtendAngles[0]
+                : thetaDeg + thisExtendAngles[0];
+        }
+
+        private float CalculateArmLength (BaseServo start, BaseServo end)
+        {
+            var startPos = part. gameObject. GetChild (start. servoTransformName). transform. position;
+            var endPos = part. gameObject. GetChild (end. servoTransformName). transform. position;
+            return Vector3. Distance (startPos, endPos);
+        }
+    }
         #endregion
 
     }
