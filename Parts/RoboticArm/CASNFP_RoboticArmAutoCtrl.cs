@@ -5,13 +5,13 @@ using KSP.UI.Screens;
 using System;
 using System. Collections. Generic;
 using System.Linq;
+using System.Reflection;
 using TestScripts;
 using UnityEngine;
 namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 {
-    public class CASNFP_RoboticArmAutoCtrl:MonoBehaviour
+    public class CASNFP_RoboticArmAutoCtrl:PartModule
     {
-        [KSPField(isPersistant = true)]
         int currentIndex = 0;
         public int CurrentIndex
         {
@@ -34,12 +34,14 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         Dictionary<int, originalArm> roboticArmIndex;
         public Part[] CASNFP_RoboticArmPart;
         public Action<int, int> onValueChanged;
+
         /// <summary>
         /// 机械臂自动控制程序，先区分有几个机械臂，然后让玩家选择一个机械臂进行控制，判断机械臂类型，选择目标位置和目标姿态，控制机械臂到达目标位置和姿态，按计划开始工作。
         /// </summary>
 
         public void Start()
         {
+
             if (onValueChanged == null)
             {
                 onValueChanged += new Action<int, int>(OnValueChanged);
@@ -61,23 +63,20 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             onValueChanged -= new Action<int, int>(OnValueChanged);
         }
 
-        //public void OnSave(GameEvents.FromToAction<ProtoVessel, ConfigNode> data)
-        //{
-        //    Debug.Log(data.from.ToString()+ data.to.ToString());
-        //    if (data.from != CASNFP_RoboticArmPart[0].vessel.protoVessel) return;
-        //    ConfigNode node = data.to;
-        //    node.SetValue("CurrentIndex", CurrentIndex, true);
-        //    Debug.Log("OnSave已经运行     " +    node.HasValue("CurrentIndex") + node.GetValue("CurrentIndex"));
-            
-        //}
+        public override void OnSave(ConfigNode node)
+        {
+            Debug.Log(part.name);
+            node.SetValue("CurrentIndex", CurrentIndex, true);
+            Debug.Log("OnSave已经运行     " + node.HasValue("CurrentIndex") + node.GetValue("CurrentIndex"));
 
-        //void OnLoad(GameEvents.FromToAction<ProtoVessel, ConfigNode> data)
-        //{
-        //    if (data.from != CASNFP_RoboticArmPart[0].vessel.protoVessel || !data.to.HasValue("CurrentIndex")) return;
-        //    ConfigNode node = data.to;
-        //    CurrentIndex = int.Parse(node.GetValue("CurrentIndex")) ;
-        //    Debug.Log("经过ONload,currentIndex=" + CurrentIndex);
-        //}
+        }
+
+        public override void OnLoad(ConfigNode node)
+        {
+            if (!node.HasValue("CurrentIndex")) return;
+            CurrentIndex = int.Parse(node.GetValue("CurrentIndex"));
+            Debug.Log("经过ONload,currentIndex=" + CurrentIndex);
+        }
         /// <summary>
         /// CurrentIndex数值变化的事件执行逻辑
         /// </summary>

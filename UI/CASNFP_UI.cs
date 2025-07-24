@@ -61,12 +61,12 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
                 {
                     CASNFP_RoboticArmPartList. Add (module.part);
                 }
-                if (vessel.gameObject.GetComponent<ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.CASNFP_RoboticArmAutoCtrl>() == null) 
+                if (vessel.rootPart.FindModuleImplementing<ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.CASNFP_RoboticArmAutoCtrl>() == null) 
                 {
-                    vessel.gameObject.AddComponent< ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.CASNFP_RoboticArmAutoCtrl > ();
+                    vessel.rootPart.AddModule("CASNFP_RoboticArmAutoCtrl");
                 }
-                vessel.gameObject.GetComponent< ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.CASNFP_RoboticArmAutoCtrl > (). CASNFP_RoboticArmPart = CASNFP_RoboticArmPartList. ToArray ();
-                vessel.gameObject.GetComponent<ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.CASNFP_RoboticArmAutoCtrl>().Start ();
+                vessel.rootPart.FindModuleImplementing<ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.CASNFP_RoboticArmAutoCtrl>(). CASNFP_RoboticArmPart = CASNFP_RoboticArmPartList. ToArray ();
+                vessel.rootPart.FindModuleImplementing<ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.CASNFP_RoboticArmAutoCtrl>().Start ();
 
 
             }
