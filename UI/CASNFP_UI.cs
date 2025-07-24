@@ -65,7 +65,6 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
                 {
                     vessel.gameObject.AddComponent< ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.CASNFP_RoboticArmAutoCtrl > ();
                 }
-                    
                 vessel.gameObject.GetComponent< ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.CASNFP_RoboticArmAutoCtrl > (). CASNFP_RoboticArmPart = CASNFP_RoboticArmPartList. ToArray ();
                 vessel.gameObject.GetComponent<ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.CASNFP_RoboticArmAutoCtrl>().Start ();
 

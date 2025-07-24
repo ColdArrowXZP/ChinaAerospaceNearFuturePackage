@@ -6,7 +6,7 @@ namespace ChinaAeroSpaceNearFuturePackage
     /// <summary>
     /// 启动时加载CASNFP项目配置文件，调用CANFP_GlobalSettings时返回配置文件。
     /// </summary>
-    [KSPAddon(KSPAddon.Startup.MainMenu, false)]
+    [KSPAddon(KSPAddon.Startup.MainMenu, true)]
     public class SettingLoader:MonoBehaviour
     {
         private static ConfigNode _CASNFP_GlobalSettings;

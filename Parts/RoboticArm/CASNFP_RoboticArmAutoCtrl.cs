@@ -1,9 +1,11 @@
 ﻿using ChinaAeroSpaceNearFuturePackage.UI;
 using Expansions.Serenity;
 using KSP. UI;
+using KSP.UI.Screens;
 using System;
 using System. Collections. Generic;
 using System.Linq;
+using TestScripts;
 using UnityEngine;
 namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 {
@@ -58,6 +60,24 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         {
             onValueChanged -= new Action<int, int>(OnValueChanged);
         }
+
+        //public void OnSave(GameEvents.FromToAction<ProtoVessel, ConfigNode> data)
+        //{
+        //    Debug.Log(data.from.ToString()+ data.to.ToString());
+        //    if (data.from != CASNFP_RoboticArmPart[0].vessel.protoVessel) return;
+        //    ConfigNode node = data.to;
+        //    node.SetValue("CurrentIndex", CurrentIndex, true);
+        //    Debug.Log("OnSave已经运行     " +    node.HasValue("CurrentIndex") + node.GetValue("CurrentIndex"));
+            
+        //}
+
+        //void OnLoad(GameEvents.FromToAction<ProtoVessel, ConfigNode> data)
+        //{
+        //    if (data.from != CASNFP_RoboticArmPart[0].vessel.protoVessel || !data.to.HasValue("CurrentIndex")) return;
+        //    ConfigNode node = data.to;
+        //    CurrentIndex = int.Parse(node.GetValue("CurrentIndex")) ;
+        //    Debug.Log("经过ONload,currentIndex=" + CurrentIndex);
+        //}
         /// <summary>
         /// CurrentIndex数值变化的事件执行逻辑
         /// </summary>
@@ -91,7 +111,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         {
             if (MessageBox.Instance != null)
             {
-                Destroy(MessageBox.Instance.gameObject);
+                GameObject.Destroy(MessageBox.Instance);
             }
             int index = roboticArmIndex.Count;
             label = new DialogGUILabel(flexH: true, GetLabelString, 390f, 0f)
@@ -199,10 +219,10 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             {
                 switch (item.armWorkType)
                 {
-                    case ArmWorkType.ChangE:
+                    case ArmWorkType.Sample_ChangE:
                         changEList.Add(item);
                         break;
-                    case ArmWorkType.TianGong:
+                    case ArmWorkType.Walk_TianGong:
                         tianGongList.Add(item);
                         break;
                     case ArmWorkType.Grabbing:
@@ -289,7 +309,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         {
             ArmWorkType workType = thisPartList[0].armWorkType;
             Dictionary<int, originalArm> roboticArmIndex = new Dictionary<int, originalArm>();
-            if (workType == ArmWorkType.ChangE)
+            if (workType == ArmWorkType.Sample_ChangE)
             {
                 IEnumerable<CheckAndDistinguishThePart> armBase = thisPartList.Where(item => item.partType == ArmPartType.Base);
                 for (int i = 0; i < armBase.Count(); i++)
@@ -324,7 +344,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 }
                 return roboticArmIndex;
             }
-            if (workType == ArmWorkType.TianGong)
+            if (workType == ArmWorkType.Walk_TianGong)
             {
                 IEnumerable<CheckAndDistinguishThePart> armBase = thisPartList.Where(item => item.partType == ArmPartType.work);
                 for (int i = 0; i < armBase.Count(); i++)
