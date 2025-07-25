@@ -446,7 +446,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 return;
             if ( nowCtrlArm. armWorkType == ArmWorkType. Sample_ChangE )
             {
-                Vector3 targetSamplePoint = HandleSampleTarget ();
+                Vector3 targetSamplePoint = HandleSampleTargetSelection ();
             } 
             if ( nowCtrlArm. armWorkType == ArmWorkType. Walk_TianGong )
                 HandleWalkTargetSelection ();
@@ -466,7 +466,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         }
 
         //嫦娥机械臂取样点设置方法
-        private Vector3 HandleSampleTarget ()
+        private Vector3 HandleSampleTargetSelection ()
         {
             ScreenMessages. PostScreenMessage (
                 Localizer. Format ("请左键选择取样地点", vessel. GetDisplayName ()),
@@ -475,7 +475,8 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             if ( !Input. GetMouseButtonDown (0) )
                 return Vector3. positiveInfinity;
 
-            if ( !TryGetValidSamplePoint (out Vector3 clickPoint) )return Vector3.positiveInfinity;
+            if ( !TryGetValidSamplePoint (out Vector3 clickPoint) )
+                return Vector3.positiveInfinity;
             return clickPoint;   
         }
 
