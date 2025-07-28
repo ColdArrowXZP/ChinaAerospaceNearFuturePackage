@@ -32,13 +32,12 @@ namespace ChinaAeroSpaceNearFuturePackage. UI
         /// <param name="message">消息内容</param>
         /// <param name="onConfirm">确认按钮的回调</param>
         /// <param name="onCancel">取消按钮的回调</param>
-        private void awake()
+        private void Awake()
         {
             // 确保只有一个实例存在
             if (instance == null)
             {
                 instance = this;
-                DontDestroyOnLoad(gameObject);
             }
             else
             {

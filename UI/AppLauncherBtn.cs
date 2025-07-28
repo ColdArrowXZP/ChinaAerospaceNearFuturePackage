@@ -3,7 +3,6 @@ using UnityEngine;
 
 namespace ChinaAeroSpaceNearFuturePackage.UI
 {
-    
     public class AppLauncherBtn : MonoBehaviour
     {
         /// <summary>

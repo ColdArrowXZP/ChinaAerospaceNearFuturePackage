@@ -40,7 +40,6 @@ namespace ChinaAeroSpaceNearFuturePackage
                     _AppBundle = AssetBundleLoader.LoadBundle(_AppBundleName);
                 }
             }
-            
         }
     }
 }

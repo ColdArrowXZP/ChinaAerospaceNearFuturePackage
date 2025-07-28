@@ -1,20 +1,48 @@
 ﻿using ChinaAeroSpaceNearFuturePackage.UI;
-using CommNet. Network;
 using Expansions.Serenity;
-using KSP. Localization;
 using System;
 using System. Collections. Generic;
 using System. Linq;
 using UnityEngine;
-using static ChinaAeroSpaceNearFuturePackage. Parts. CASNFP_RoboticArmBase;
 namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 {
-    public class CASNFP_RoboticArmAutoCtrl:PartModule
+    public class CASNFP_RoboticArmAutoCtrl:MonoBehaviour
     {
-        [KSPField(isPersistant = true)]
+        //实现控制器UI为单例
+        private static CASNFP_RoboticArmAutoCtrl _instance;
+        private CASNFP_RoboticArmAutoCtrl ()
+        {
+        }
+        public static CASNFP_RoboticArmAutoCtrl Instance
+        {
+            get
+            {
+                if ( _instance == null )
+                {
+                    _instance = FindObjectOfType<CASNFP_RoboticArmAutoCtrl> ();
+                    if ( _instance == null )
+                    {
+                        GameObject go = new GameObject (typeof (CASNFP_RoboticArmAutoCtrl). Name);
+                        _instance = go. AddComponent<CASNFP_RoboticArmAutoCtrl> ();
+                    }
+                    else
+                    {
+                        _instance. Start ();
+                    }
+                }
+                else
+                {
+                    _instance. Start ();
+                }
+                return _instance;
+            }
+            
+        }
+
+        [KSPField (isPersistant = true)]
         int currentIndex;
 
-        ConfigNode thisSetting = SettingLoader.CASNFP_GlobalSettings;
+        ConfigNode thisSetting = SettingLoader. CASNFP_GlobalSettings;
         public int CurrentIndex
         {
             get
@@ -23,12 +51,12 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             }
             set
             {
-                if (currentIndex != value)
+                if ( currentIndex != value )
                 {
                     int oldIndex = currentIndex;
                     int newIndex = value;
                     currentIndex = value;
-                    OnValueChanged(oldIndex, newIndex);
+                    OnValueChanged (oldIndex, newIndex);
                 }
 
             }
@@ -40,64 +68,80 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         /// <summary>
         /// 机械臂自动控制程序，先区分有几个机械臂，然后让玩家选择一个机械臂进行控制，判断机械臂类型，选择目标位置和目标姿态，控制机械臂到达目标位置和姿态，按计划开始工作。
         /// </summary>
-
-        public void Start()
+        public void Awake ()
+        {
+            if ( _instance != null && _instance != this )
+            {
+                Destroy (gameObject);
+                return;
+            }
+        }
+        public void Start ()
         {
             if ( thisSetting != null )
             {
                 if ( thisSetting. HasValue ("currentIndex") )
                 {
-                    currentIndex = int.Parse (thisSetting. GetValue ("currentIndex"));
-                    Debug. Log ($"读取了currentIndex ={currentIndex}");
+                    currentIndex = int. Parse (thisSetting. GetValue ("currentIndex"));
                 }
-                else
-                    Debug. Log ($"读取了currentIndex没找到");
             }
-            CASNFP_RoboticArmPart = CASNFP_UI.Instance.CASNFP_RoboticArmPart;
-            if (onValueChanged == null)
+            if ( onValueChanged == null )
             {
-                onValueChanged += new Action<int, int>(OnValueChanged);
+                onValueChanged += new Action<int, int> (OnValueChanged);
             }
-            roboticArmIndex = CheckAndDistinguishTheArm(CASNFP_RoboticArmPart);
-            if (roboticArmIndex.Count == 0)
+            roboticArmIndex = CheckAndDistinguishTheArm (CASNFP_RoboticArmPart);
+            if ( roboticArmIndex. Count == 0 )
             {
-                MessageBox.Instance.ShowDialog("错误", "没有找到机械臂部件，请检查机械臂部件是否正确连接。");
+                MessageBox. Instance. ShowDialog ("错误", "没有找到机械臂部件，请检查机械臂部件是否正确连接。");
                 return;
             }
             else
             {
-                CreatArmSelectionWindow(roboticArmIndex);
-                if ( CurrentIndex < roboticArmIndex.Count)
-                InitializeCurrentArm (default, roboticArmIndex[CurrentIndex]);
+                CreatArmSelectionWindow (roboticArmIndex);
+                onValueChanged. Invoke (-1,currentIndex);
             }
         }
-        public void OnDestroy()
+        public void OnDestroy ()
         {
-            onValueChanged -= new Action<int, int>(OnValueChanged);
+            OnSave (thisSetting);
+            onValueChanged -= new Action<int, int> (OnValueChanged);
         }
-
-        public override void OnSave(ConfigNode node)
+        private void OnSave (ConfigNode node)
         {
-            if (!HighLogic. LoadedSceneIsFlight ||  base. vessel == null  || !base. vessel. loaded)
+            if ( !HighLogic. LoadedSceneIsFlight )
             {
                 return;
             }
-            if (thisSetting == null)return;
-            thisSetting. SetValue("currentIndex", currentIndex, true);
-            Debug. Log ($"保存了currentIndex ={node.GetValue("currentIndex")}");
+            if ( node == null )
+                return;
+            node. SetValue ("currentIndex", currentIndex, true);
         }
         /// <summary>
         /// CurrentIndex数值变化的事件执行逻辑
         /// </summary>
         /// <param name="oldIndex">前一个选择的机械臂序号，默认选择0号机械臂</param>
         /// <param name="newIndex">当前选择的机械臂序号</param>
-        private void OnValueChanged(int oldIndex, int newIndex)
+        protected virtual void OnValueChanged (int oldIndex, int newIndex)
         {
             //刷新控制面板内容
-            label.Update();
-            Debug.Log($"原有机械臂序号是{oldIndex}，新的机械臂序号是{newIndex}");
-            InitializeCurrentArm(roboticArmIndex[oldIndex], roboticArmIndex[newIndex]);
-
+            label. Update ();
+            Debug. Log ($"原有机械臂序号是{oldIndex}，新的机械臂序号是{newIndex}");
+            //原有机械臂动作逻辑
+            if ( oldIndex >= 0 )
+            {
+                foreach ( var item in roboticArmIndex[oldIndex]. armParts )
+                {
+                    item. Highlight (false);
+                }
+            }
+            //新机械臂动作逻辑
+            if ( newIndex >= 0 )
+            {
+                foreach ( var item in roboticArmIndex[newIndex].armParts )
+                {
+                    item. Highlight (true);
+                }
+            }
         }
         struct CheckAndDistinguishThePart
         {
@@ -105,7 +149,8 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             public Part part;
             public ArmPartType partType;
         }
-        struct originalArm {
+        struct originalArm
+        {
             public ArmWorkType armWorkType;
             public Part[] armParts;
         }
@@ -115,84 +160,84 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         /// </summary>
         DialogGUIToggleGroup toggleGroup;
         DialogGUILabel label;
-        void CreatArmSelectionWindow(Dictionary<int, originalArm> roboticArmIndex)
+        void CreatArmSelectionWindow (Dictionary<int, originalArm> roboticArmIndex)
         {
-            if (MessageBox.Instance != null)
+            if ( MessageBox. Instance != null )
             {
-                GameObject.Destroy(MessageBox.Instance);
+                GameObject. Destroy (MessageBox. Instance);
             }
-            int index = roboticArmIndex.Count;
-            label = new DialogGUILabel(flexH: true, GetLabelString, 390f, 0f)
+            int index = roboticArmIndex. Count;
+            label = new DialogGUILabel (flexH: true, GetLabelString, 390f, 0f)
             {
-                guiStyle = new UIStyle(HighLogic.UISkin.label)
+                guiStyle = new UIStyle (HighLogic. UISkin. label)
                 {
-                    alignment = TextAnchor.MiddleLeft
+                    alignment = TextAnchor. MiddleLeft
                 }
             };
-            DialogGUIButton close = new DialogGUIButton("关闭面板", OnClosed, true);
+            DialogGUIButton close = new DialogGUIButton ("关闭面板", OnClosed, true);
             DialogGUIToggle[] dialogGUIToggles = new DialogGUIToggle[index];
             if ( CurrentIndex > index )
             {
                 currentIndex = 0;
             }
-            for (int i = 0; i < index; i++)
+            for ( int i = 0 ; i < index ; i++ )
             {
                 bool isCurrent = i == CurrentIndex ? true : false;
-                dialogGUIToggles[i] = new DialogGUIToggle(isCurrent, $"{i + 1}  号", onSelected);
+                dialogGUIToggles[i] = new DialogGUIToggle (isCurrent, $"{i + 1}  号", OnSelected);
             }
-            toggleGroup = new DialogGUIToggleGroup(dialogGUIToggles);
-            var dialog = new MultiOptionDialog(
+            toggleGroup = new DialogGUIToggleGroup (dialogGUIToggles);
+            var dialog = new MultiOptionDialog (
                 "CASNFP_ControlPanel",
                 "",
                 "机械臂选择面板",
-                HighLogic.UISkin,
-                new Rect(0.5f, 0.5f, 400f, 200f),
-                new DialogGUIVerticalLayout(
+                HighLogic. UISkin,
+                new Rect (0.7f, 0.7f, 400f, 200f),
+                new DialogGUIVerticalLayout (
                     label,
-                    new DialogGUIHorizontalLayout(toggleGroup),
-                    new DialogGUIHorizontalLayout(
-                        new DialogGUIFlexibleSpace(), close, new DialogGUIFlexibleSpace())
+                    new DialogGUIHorizontalLayout (toggleGroup),
+                    new DialogGUIHorizontalLayout (
+                        new DialogGUIFlexibleSpace (), close, new DialogGUIFlexibleSpace ())
                 )
             );
-            PopupDialog.SpawnPopupDialog(
-                new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f),
+            PopupDialog dialog1 = PopupDialog. SpawnPopupDialog (
+                new Vector2 (0.5f, 0.5f),
+                new Vector2 (0.5f, 0.5f),
                 dialog,
                 false,
-                HighLogic.UISkin
+                HighLogic. UISkin
             );
         }
 
-        private string GetLabelString()
+        private string GetLabelString ()
         {
-            int index = roboticArmIndex.Count;
+            int index = roboticArmIndex. Count;
             string armSelection = $"    在飞船检测到{index}个机械臂，请选择需要控制的机械臂：\n";
-            foreach (var item in roboticArmIndex)
+            foreach ( var item in roboticArmIndex )
             {
-                armSelection += $"    机械臂序号: {item.Key + 1}, 机械臂类型: {item.Value.armWorkType}\n";
+                armSelection += $"    机械臂序号: {item. Key + 1}, 机械臂类型: {item. Value. armWorkType}\n";
             }
             armSelection += $"    当前控制的是{CurrentIndex}号机械臂，可选择其他机械臂。";
             return armSelection;
         }
 
-        private void OnClosed()
+        private void OnClosed ()
         {
             OnSave (thisSetting);
-            Debug.Log($"机械臂选择面板已关闭");
+            Debug. Log ($"机械臂选择面板已关闭");
         }
 
-
-        private void onSelected(bool arg1)
+        private void OnSelected (bool arg1)
         {
-            if (!arg1) return;
-            if (arg1)
+            if ( !arg1 )
+                return;
+            if ( arg1 )
             {
-                for (int i = 0; i < toggleGroup.children.Count; i++)
+                for ( int i = 0 ; i < toggleGroup. children. Count ; i++ )
                 {
-                    if (toggleGroup.children[i] is DialogGUIToggle)
+                    if ( toggleGroup. children[i] is DialogGUIToggle )
                     {
-                        DialogGUIToggle toggle = toggleGroup.children[i] as DialogGUIToggle;
-                        if (toggle.toggle.isOn)
+                        DialogGUIToggle toggle = toggleGroup. children[i] as DialogGUIToggle;
+                        if ( toggle. toggle. isOn )
                         {
                             CurrentIndex = i;
                         }
@@ -206,109 +251,109 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         /// 检查机械臂部件并区分机械臂类型
         /// </summary>
 
-        private Dictionary<int, originalArm> CheckAndDistinguishTheArm(Part[] cASNFP_RoboticArmPart)
+        private Dictionary<int, originalArm> CheckAndDistinguishTheArm (Part[] cASNFP_RoboticArmPart)
         {
-            Dictionary<int, originalArm> roboticArmIndex = new Dictionary<int, originalArm>();//机械臂索引，键为机械臂索引，值为机械臂类型和机械臂部件数组
-            List<CheckAndDistinguishThePart> thePartsList = new List<CheckAndDistinguishThePart>();//机械臂部件列表
+            Dictionary<int, originalArm> roboticArmIndex = new Dictionary<int, originalArm> ();//机械臂索引，键为机械臂索引，值为机械臂类型和机械臂部件数组
+            List<CheckAndDistinguishThePart> thePartsList = new List<CheckAndDistinguishThePart> ();//机械臂部件列表
             // 遍历所有机械臂部件，获取机械臂类型和部件类型
-            foreach (Part part in cASNFP_RoboticArmPart)
+            foreach ( Part part in cASNFP_RoboticArmPart )
             {
-                ModuleCASNFP_RoboticArmPart roboticArmModule = part.Modules.GetModule<ModuleCASNFP_RoboticArmPart>();
+                ModuleCASNFP_RoboticArmPart roboticArmModule = part. Modules. GetModule<ModuleCASNFP_RoboticArmPart> ();
                 CheckAndDistinguishThePart thePart = new CheckAndDistinguishThePart
                 {
                     part = part,
-                    armWorkType = roboticArmModule.ArmType,
-                    partType = roboticArmModule.ArmPartType
+                    armWorkType = roboticArmModule. ArmType,
+                    partType = roboticArmModule. ArmPartType
                 };
-                thePartsList.Add(thePart);
+                thePartsList. Add (thePart);
             }
             // 定义四个列表来存储不同类型的机械臂部件
-            List<CheckAndDistinguishThePart> changEList = new List<CheckAndDistinguishThePart>();
-            List<CheckAndDistinguishThePart> tianGongList = new List<CheckAndDistinguishThePart>();
-            List<CheckAndDistinguishThePart> grabbingList = new List<CheckAndDistinguishThePart>();
-            List<CheckAndDistinguishThePart> cameraList = new List<CheckAndDistinguishThePart>();
+            List<CheckAndDistinguishThePart> changEList = new List<CheckAndDistinguishThePart> ();
+            List<CheckAndDistinguishThePart> tianGongList = new List<CheckAndDistinguishThePart> ();
+            List<CheckAndDistinguishThePart> grabbingList = new List<CheckAndDistinguishThePart> ();
+            List<CheckAndDistinguishThePart> cameraList = new List<CheckAndDistinguishThePart> ();
             //将机械臂组件按照机械臂类型进行分类
-            foreach (var item in thePartsList)
+            foreach ( var item in thePartsList )
             {
-                switch (item.armWorkType)
+                switch ( item. armWorkType )
                 {
-                    case ArmWorkType.Sample_ChangE:
-                        changEList.Add(item);
+                    case ArmWorkType. Sample_ChangE:
+                        changEList. Add (item);
                         break;
-                    case ArmWorkType.Walk_TianGong:
-                        tianGongList.Add(item);
+                    case ArmWorkType. Walk_TianGong:
+                        tianGongList. Add (item);
                         break;
-                    case ArmWorkType.Grabbing:
-                        grabbingList.Add(item);
+                    case ArmWorkType. Grabbing:
+                        grabbingList. Add (item);
                         break;
-                    case ArmWorkType.Camera:
-                        cameraList.Add(item);
+                    case ArmWorkType. Camera:
+                        cameraList. Add (item);
                         break;
                     default:
-                        Debug.LogError($"未知的机械臂类型: {item.armWorkType}");
+                        Debug. LogError ($"未知的机械臂类型: {item. armWorkType}");
                         break;
                 }
             }
             //执行将分类后的机械臂部件按照顺序组成机械臂的方法
-            if (changEList.Count > 0)
+            if ( changEList. Count > 0 )
             {
                 //如果有嫦娥机械臂部件，则将其分解成机械臂
-                Dictionary<int, originalArm> _originalArms = Spit_Arm(changEList);
+                Dictionary<int, originalArm> _originalArms = Spit_Arm (changEList);
 
-                if (_originalArms != null && _originalArms.Count > 0)
+                if ( _originalArms != null && _originalArms. Count > 0 )
                 {
-                    if (roboticArmIndex.Count == 0)
+                    if ( roboticArmIndex. Count == 0 )
                     {
                         //如果没有机械臂索引，则直接赋值
                         roboticArmIndex = _originalArms;
                     }
                     else
-                        roboticArmIndex = MergeDictionaries<originalArm>(roboticArmIndex, _originalArms);
+                        roboticArmIndex = MergeDictionaries<originalArm> (roboticArmIndex, _originalArms);
                 }
             }
-            if (tianGongList.Count > 0)
+            if ( tianGongList. Count > 0 )
             {
-                Dictionary<int, originalArm> _originalArms = Spit_Arm(tianGongList);
-                if ((_originalArms != null))
+                Dictionary<int, originalArm> _originalArms = Spit_Arm (tianGongList);
+                if ( ( _originalArms != null ) )
                 {
-                    roboticArmIndex = MergeDictionaries<originalArm>(roboticArmIndex, _originalArms);
+                    roboticArmIndex = MergeDictionaries<originalArm> (roboticArmIndex, _originalArms);
                 }
             }
-            if (grabbingList.Count > 0)
+            if ( grabbingList. Count > 0 )
             {
-                Dictionary<int, originalArm> _originalArms = Spit_Arm(grabbingList);
-                if ((_originalArms != null))
+                Dictionary<int, originalArm> _originalArms = Spit_Arm (grabbingList);
+                if ( ( _originalArms != null ) )
                 {
-                    roboticArmIndex = MergeDictionaries<originalArm>(roboticArmIndex, _originalArms);
+                    roboticArmIndex = MergeDictionaries<originalArm> (roboticArmIndex, _originalArms);
                 }
             }
-            if (cameraList.Count > 0)
+            if ( cameraList. Count > 0 )
             {
-                Dictionary<int, originalArm> _originalArms = Spit_Arm(cameraList);
-                if ((_originalArms != null))
+                Dictionary<int, originalArm> _originalArms = Spit_Arm (cameraList);
+                if ( ( _originalArms != null ) )
                 {
-                    roboticArmIndex = MergeDictionaries<originalArm>(roboticArmIndex, _originalArms);
+                    roboticArmIndex = MergeDictionaries<originalArm> (roboticArmIndex, _originalArms);
                 }
             }
             return roboticArmIndex;
         }
-        private static Dictionary<int, T> MergeDictionaries<T>(
+        private static Dictionary<int, T> MergeDictionaries<T> (
         Dictionary<int, T> dictA,
         Dictionary<int, T> dictB)
         {
-            var merged = new Dictionary<int, T>();
+            var merged = new Dictionary<int, T> ();
 
             // 添加字典A的所有元素
-            foreach (var item in dictA)
+            foreach ( var item in dictA )
             {
-                merged.Add(item.Key, item.Value);
+                merged. Add (item. Key, item. Value);
             }
 
             // 添加字典B的所有元素，键值从字典A最大键+1开始
-            int startKey = dictA.Keys.Max() + 1;
-            foreach (var item in dictB)
+            int startKey = dictA. Keys. Max () + 1;
+            foreach ( var item in dictB )
             {
-                merged.Add(startKey++, item.Value);
+                merged. Add (startKey++, item. Value);
             }
 
             return merged;
@@ -318,320 +363,94 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         /// </summary>
         /// <param name="thisPartList">所有工作类型的part数组</param>
         /// <returns>返回一个字典，key是int值序号，value是originalArm结构体的机械臂Part</returns>
-        private Dictionary<int, originalArm> Spit_Arm(List<CheckAndDistinguishThePart> thisPartList)
+        private Dictionary<int, originalArm> Spit_Arm (List<CheckAndDistinguishThePart> thisPartList)
         {
-            ArmWorkType workType = thisPartList[0].armWorkType;
-            Dictionary<int, originalArm> roboticArmIndex = new Dictionary<int, originalArm>();
-            if (workType == ArmWorkType.Sample_ChangE)
+            ArmWorkType workType = thisPartList[0]. armWorkType;
+            Dictionary<int, originalArm> roboticArmIndex = new Dictionary<int, originalArm> ();
+            if ( workType == ArmWorkType. Sample_ChangE )
             {
-                IEnumerable<CheckAndDistinguishThePart> armBase = thisPartList.Where(item => item.partType == ArmPartType.Base);
-                for (int i = 0; i < armBase.Count(); i++)
+                IEnumerable<CheckAndDistinguishThePart> armBase = thisPartList. Where (item => item. partType == ArmPartType. Base);
+                for ( int i = 0 ; i < armBase. Count () ; i++ )
                 {
-                    List<Part> parts = new List<Part>();
-                    List<int> index = new List<int>();
-                    for (int j = thisPartList.IndexOf(armBase.ElementAt(i)); j < thisPartList.Count(); j++)
+                    List<Part> parts = new List<Part> ();
+                    List<int> index = new List<int> ();
+                    for ( int j = thisPartList. IndexOf (armBase. ElementAt (i)) ; j < thisPartList. Count () ; j++ )
                     {
-                        parts.Add(thisPartList[j].part);
-                        index.Add(thisPartList[j].part.vessel.Parts.IndexOf(thisPartList[j].part));
-                        if (j + 1 >= thisPartList.Count()) break; //如果已经是最后一个部件，则结束循环
-                        if (thisPartList[j + 1].partType == ArmPartType.Base) break; //如果下一个部件是基座，则结束循环
+                        parts. Add (thisPartList[j]. part);
+                        index. Add (thisPartList[j]. part. vessel. Parts. IndexOf (thisPartList[j]. part));
+                        if ( j + 1 >= thisPartList. Count () )
+                            break; //如果已经是最后一个部件，则结束循环
+                        if ( thisPartList[j + 1]. partType == ArmPartType. Base )
+                            break; //如果下一个部件是基座，则结束循环
                     }
-                    if (index.Count < 2) break;
-                    Array.Sort(index.ToArray());
+                    if ( index. Count < 2 )
+                        break;
+                    Array. Sort (index. ToArray ());
                     //如果部件索引不连续，则结束循环
-                    for (int j = 0; j < index.Count - 1; j++)
+                    for ( int j = 0 ; j < index. Count - 1 ; j++ )
                     {
-                        if (index[j + 1] - index[j] != 1)
+                        if ( index[j + 1] - index[j] != 1 )
                         {
                             //说明机械臂部件不连续，中间夹杂了非CASNFP_RoboticArmPart部件
-                            Debug.LogError($"机械臂部件不连续，索引为{index[j]}和{index[j + 1]}之间夹杂了非CASNFP_RoboticArmPart部件，请检查机械臂部件是否正确连接。");
+                            MessageBox.Instance.ShowDialog ("错误",$"机械臂部件不连续，索引为{index[j]}和{index[j + 1]}之间夹杂了非CASNFP_RoboticArmPart部件，请检查机械臂部件是否正确连接。");
                             return null;
                         }
                     }
                     originalArm original = new originalArm
                     {
                         armWorkType = workType,
-                        armParts = parts.ToArray()
+                        armParts = parts. ToArray ()
                     };
-                    roboticArmIndex.Add(i, original);
+                    roboticArmIndex. Add (i, original);
                 }
                 return roboticArmIndex;
             }
-            if (workType == ArmWorkType.Walk_TianGong)
+            if ( workType == ArmWorkType. Walk_TianGong )
             {
-                IEnumerable<CheckAndDistinguishThePart> armBase = thisPartList.Where(item => item.partType == ArmPartType.work);
-                for (int i = 0; i < armBase.Count(); i++)
+                IEnumerable<CheckAndDistinguishThePart> armBase = thisPartList. Where (item => item. partType == ArmPartType. work);
+                for ( int i = 0 ; i < armBase. Count () ; i++ )
                 {
-                    List<Part> parts = new List<Part>();
-                    List<int> index = new List<int>();
-                    for (int j = thisPartList.IndexOf(armBase.ElementAt(i)); j < thisPartList.Count(); j++)
+                    List<Part> parts = new List<Part> ();
+                    List<int> index = new List<int> ();
+                    for ( int j = thisPartList. IndexOf (armBase. ElementAt (i)) ; j < thisPartList. Count () ; j++ )
                     {
-                        parts.Add(thisPartList[j].part);
-                        index.Add(thisPartList[j].part.vessel.Parts.IndexOf(thisPartList[i].part));
-                        if (j + 1 >= thisPartList.Count()) break; //如果已经是最后一个部件，则结束循环
-                        if (thisPartList[j].partType == ArmPartType.work && thisPartList[j + 1].partType == ArmPartType.work) break; //如果下一个部件是基座，则结束循环
+                        parts. Add (thisPartList[j]. part);
+                        index. Add (thisPartList[j]. part. vessel. Parts. IndexOf (thisPartList[i]. part));
+                        if ( j + 1 >= thisPartList. Count () )
+                            break; //如果已经是最后一个部件，则结束循环
+                        if ( thisPartList[j]. partType == ArmPartType. work && thisPartList[j + 1]. partType == ArmPartType. work )
+                            break; //如果下一个部件是基座，则结束循环
                     }
-                    if (index.Count < 2) break;
-                    Array.Sort(index.ToArray());
+                    if ( index. Count < 2 )
+                        break;
+                    Array. Sort (index. ToArray ());
                     //如果部件索引不连续，则结束循环
-                    for (int j = 0; j < index.Count - 1; j++)
+                    for ( int j = 0 ; j < index. Count - 1 ; j++ )
                     {
-                        if (index[j + 1] - index[j] != 1)
+                        if ( index[j + 1] - index[j] != 1 )
                         {
                             //说明机械臂部件不连续，中间夹杂了非CASNFP_RoboticArmPart部件
-                            Debug.LogError($"机械臂部件不连续，索引为{index[j]}和{index[j + 1]}之间夹杂了非CASNFP_RoboticArmPart部件，请检查机械臂部件是否正确连接。");
+                            Debug. LogError ($"机械臂部件不连续，索引为{index[j]}和{index[j + 1]}之间夹杂了非CASNFP_RoboticArmPart部件，请检查机械臂部件是否正确连接。");
                             return null;
                         }
                     }
                     originalArm original = new originalArm
                     {
                         armWorkType = workType,
-                        armParts = parts.ToArray()
+                        armParts = parts. ToArray ()
                     };
-                    roboticArmIndex.Add(i, original);
+                    roboticArmIndex. Add (i, original);
                 }
                 return roboticArmIndex;
             }
-            if (workType == ArmWorkType.Grabbing || workType == ArmWorkType.Camera)
+            if ( workType == ArmWorkType. Grabbing || workType == ArmWorkType. Camera )
             {
-                Debug.LogError($"机械臂类型{workType}暂不支持自动控制");
+                Debug. LogError ($"机械臂类型{workType}暂不支持自动控制");
                 return null; //抓取式机械臂和摄像类机械臂暂不支持自动控制
             }
             return null; //如果机械臂类型不在上述范围内，则返回null
         }
         #endregion
 
-        #region 机械臂确定后，执行的自动控制逻辑。
-        ///<summary>
-        /// 初始化当前控制的机械臂
-        ///</summary>   
-        /// <param name="oldArm">前一个控制中的机械臂</param>
-        /// <param name="newArm">当前正在控制中的机械臂</param>
-        float[] servoTargetAnglesAtInitial;//关节生成时角度，记录在cfg中。
-        bool canSetTargetPos = false;
-        originalArm nowCtrlArm;
-        private void InitializeCurrentArm (originalArm oldArm, originalArm newArm)
-        {
-            Debug. Log ($"当前控制的机械臂已实例");
-            ///<summary>
-            ///将前一个机械臂正在执行的动作暂停（暂时先不管旧机械臂的工作逻辑和回收逻辑）
-            ///</summary>
-            Part[] oldArmParts = oldArm. armParts;
-            foreach ( Part part in oldArmParts )
-            {
-                if ( part. FindModuleImplementing<BaseServo> () is ModuleRoboticServoHinge servoHinge )
-                {
-                    servoHinge. targetAngle = servoHinge. currentAngle;
-                }
-            }
-            ///<summary>
-            ///对当前机械臂进行动作控制
-            ///</summary>
-            //首先记录当前机械臂的起始角度，假设新机械臂为首次开始控制
-            nowCtrlArm = newArm;
-            Part[] newArmParts = newArm. armParts;
-            List<float> servoInitialAngles = new List<float> ();
-            foreach ( Part part in newArmParts )
-            {
-                if ( part. FindModuleImplementing<BaseServo> () is ModuleRoboticServoHinge servoHinge )
-                {
-                    servoInitialAngles. Add (servoHinge. targetAngle);
-                }
-            }
-            canSetTargetPos = true;
-        }
-            public override void OnUpdate ()
-        {
-            if ( !HighLogic. LoadedSceneIsFlight || !canSetTargetPos )
-                return;
-            if ( nowCtrlArm. armWorkType == ArmWorkType. Sample_ChangE )
-            {
-                Vector3 targetSamplePoint = HandleSampleTargetSelection ();
-            } 
-            if ( nowCtrlArm. armWorkType == ArmWorkType. Walk_TianGong )
-                HandleWalkTargetSelection ();
-            if ( nowCtrlArm. armWorkType == ArmWorkType. Grabbing || nowCtrlArm. armWorkType == ArmWorkType. Camera )
-            {
-                Debug. Log ("机械臂工作类型为抓取或摄像头，暂时没提供相应控制程序");
-                return;
-            }
-        }
-
-        //天宫机械臂取样点设置方法
-        private void HandleWalkTargetSelection ()
-        {
-            Debug. Log ("机械臂工作类型为抓取或摄像头，暂时没提供相应控制程序");
-            canSetTargetPos = false;
-            return;
-        }
-
-        //嫦娥机械臂取样点设置方法
-        private Vector3 HandleSampleTargetSelection ()
-        {
-            ScreenMessages. PostScreenMessage (
-                Localizer. Format ("请左键选择取样地点", vessel. GetDisplayName ()),
-                1f, ScreenMessageStyle. UPPER_LEFT);
-
-            if ( !Input. GetMouseButtonDown (0) )
-                return Vector3. positiveInfinity;
-
-            if ( !TryGetValidSamplePoint (out Vector3 clickPoint) )
-                return Vector3.positiveInfinity;
-            return clickPoint;   
-        }
-
-        private bool TryGetValidSamplePoint (out Vector3 clickPoint)
-        {
-            clickPoint = Vector3. zero;
-            var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
-
-            if ( !Physics. Raycast (ray, out RaycastHit hit) || hit. collider == null )
-                return false;
-
-            if ( hit. collider. gameObject. layer != 15 )
-            {
-                ScreenMessages. PostScreenMessage (
-                    Localizer. Format ($"选择取样地点为{hit. collider. gameObject. name}不正确，请选择地面取样点",
-                    vessel. GetDisplayName ()),
-                    2f, ScreenMessageStyle. UPPER_RIGHT);
-                return false;
-            }
-
-            clickPoint = hit. point;
-            return true;
-        }
-
-        private void CalculateAndMoveArm (Vector3 targetPos)
-        {
-            if ( CalculateInverseKinematics (targetPos,out float[] targetAngles))
-            {
-                Debug. Log ($"[CASNFP_Arm_CE_SampleArm] 计算成功，角度: {string. Join (", ", targetAngles)}");
-                armAction. Invoke (this. part, RoboticArmState. Moving);
-            }
-            else
-            {
-                ScreenMessages. PostScreenMessage (
-                    Localizer. Format ("逆运动学计算失败，请检查取样点位置", vessel. GetDisplayName ()),
-                    2f, ScreenMessageStyle. UPPER_RIGHT);
-            }
-        }
-
-        private bool CalculateInverseKinematics (Vector3 targetPos, out float[] targetAngles)
-        {
-            List<Vector2> servoSoftLimits = new List<Vector2> ();
-            foreach ( var servoModule in _servoModules )
-            {
-                if ( servoModule is ModuleRoboticRotationServo servo )
-                {
-                    servoSoftLimits. Add (servoModule. hardMinMaxLimits);
-                    continue;
-                }
-                if ( servoModule is ModuleRoboticServoHinge servoHinge )
-                {
-                    servoSoftLimits. Add (servoModule. hardMinMaxLimits);
-                    continue;
-                }
-            }
-            var result = new InverseKinematicsResult
-            {
-                success = false,
-                angles = new float[_servoModules. Length]
-            };
-
-            try
-            {
-                var joint1Transform = part. gameObject. GetChild (_servoModules[1]. servoTransformName). transform;
-                Vector3 localTargetPos = joint1Transform. InverseTransformPoint (targetPos);
-
-                // 计算底座旋转角度
-                result. angles[0] = CalculateBaseRotation (localTargetPos, targetPos);
-
-                // 计算臂长
-                float bigArmLength = CalculateArmLength (_servoModules[1], _servoModules[2]);
-                float smallArmLength = CalculateArmLength (_servoModules[2], _servoModules[3]);
-
-                // 计算目标距离
-                float distanceToTarget = localTargetPos. magnitude;
-
-                // 检查可达性
-                if ( bigArmLength + smallArmLength <= distanceToTarget )
-                {
-                    Debug. Log ("[CASNFP_Arm_CE_SampleArm]目标点超出机械臂最大长度");
-                    return result;
-                }
-
-                // 计算大臂下倾角
-                double bHu = Math. Atan2 (Math. Abs (localTargetPos. z), Math. Abs (localTargetPos. y));
-                float bHuAngle = ( float )( bHu * RadToDeg );
-
-                // 使用余弦定理计算关节角度
-                float a = distanceToTarget;
-                float b = bigArmLength;
-                float c = smallArmLength;
-
-                float angleA = ( float )( Math. Acos (( b * b + c * c - a * a ) / ( 2 * b * c )) * RadToDeg );
-                float angleB = ( float )( Math. Acos (( a * a + b * b - c * c ) / ( 2 * a * b )) * RadToDeg );
-                float angleC = 180 - angleA - angleB;
-
-                // 设置各关节角度
-                for ( int i = 0 ; i < _servoModules. Length ; i++ )
-                {
-                    switch ( i )
-                    {
-                        case 0:
-                            result. angles[i] = result. angles[0]; // 底座角度
-                            break;
-                        case 1:
-                            result. angles[i] = 180 - angleC - bHuAngle; // 大臂角度
-                            break;
-                        case 2:
-                            result. angles[i] = thisExtendAngles[i] - angleA; // 小臂角度
-                            break;
-                        case 3:
-                            result. angles[i] = thisExtendAngles[i]; // 其他关节保持默认
-                            break;
-                    }
-                }
-
-                // 检查软限制
-                for ( int i = 0 ; i < _servoModules. Length ; i++ )
-                {
-                    if ( result. angles[i] < servoSoftLimits[i]. x || result. angles[i] > servoSoftLimits[i]. y )
-                    {
-                        Debug. Log ($"[CASNFP_Arm_CE_SampleArm] 关节{i}角度超出限制");
-                        return result;
-                    }
-                }
-
-                result. success = true;
-            }
-            catch ( Exception ex )
-            {
-                Debug. LogError ($"[CASNFP_Arm_CE_SampleArm] 计算错误: {ex. Message}");
-            }
-
-            return result;
-        }
-
-        private float CalculateBaseRotation (Vector3 localTargetPos, Vector3 worldTargetPos)
-        {
-            double aHu = Math. Atan2 (Math. Abs (localTargetPos. x), Math. Abs (localTargetPos. z));
-            float thetaDeg = ( float )( aHu * RadToDeg );
-
-            return _servoModules[0]. transform. InverseTransformPoint (worldTargetPos). x < 0
-                ? thetaDeg * -1 + thisExtendAngles[0]
-                : thetaDeg + thisExtendAngles[0];
-        }
-
-        private float CalculateArmLength (BaseServo start, BaseServo end)
-        {
-            var startPos = part. gameObject. GetChild (start. servoTransformName). transform. position;
-            var endPos = part. gameObject. GetChild (end. servoTransformName). transform. position;
-            return Vector3. Distance (startPos, endPos);
-        }
     }
-        #endregion
-
-    }
-
 }

@@ -11,7 +11,7 @@ namespace ChinaAeroSpaceNearFuturePackage
         /// <summary>
         /// 中国航天近未来包版本号。
         /// </summary>
-        public const string CASNFP_VERSION = "1.0.0.0";
+        public const string CASNFP_VERSION = "1.0.0.1";
         private static string assemblyFile;
         private static string assemblyName;
         private static string assemblyPath;
