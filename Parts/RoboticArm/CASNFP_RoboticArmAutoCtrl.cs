@@ -92,7 +92,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             roboticArmIndex = CheckAndDistinguishTheArm (CASNFP_RoboticArmPart);
             if ( roboticArmIndex. Count == 0 )
             {
-                MessageBox. Instance. ShowDialog ("错误", "没有找到机械臂部件，请检查机械臂部件是否正确连接。");
+                MessageBox. Instance. ShowDialog ("错误", "没有找到机械臂部件，或自动识别机械臂错误，请检查机械臂部件是否正确连接。");
                 return;
             }
             else
@@ -174,7 +174,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                     alignment = TextAnchor. MiddleLeft
                 }
             };
-            DialogGUIButton close = new DialogGUIButton ("关闭面板", OnClosed, true);
+            DialogGUIButton close = new DialogGUIButton ("确认选择", ConfirmSelection, true);
             DialogGUIToggle[] dialogGUIToggles = new DialogGUIToggle[index];
             if ( CurrentIndex > index )
             {
@@ -219,11 +219,21 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             armSelection += $"    当前控制的是{CurrentIndex}号机械臂，可选择其他机械臂。";
             return armSelection;
         }
-
-        private void OnClosed ()
+        originalArm currentWorkingRoboticArm = default (originalArm);
+        private void ConfirmSelection ()
         {
             OnSave (thisSetting);
-            Debug. Log ($"机械臂选择面板已关闭");
+            //确认选择的机械臂，启动机械臂控制逻辑
+            if ( !currentWorkingRoboticArm. Equals (default (originalArm)) )
+            {
+                //有原来选择的机械臂要收回、保持、或取消确认
+                foreach ( var item in currentWorkingRoboticArm. armParts )
+                {
+                    item.FindModuleImplementing<ModuleRoboticServoHinge>().
+                }
+            }
+            currentWorkingRoboticArm = roboticArmIndex[CurrentIndex];
+            
         }
 
         private void OnSelected (bool arg1)
@@ -392,7 +402,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                         if ( index[j + 1] - index[j] != 1 )
                         {
                             //说明机械臂部件不连续，中间夹杂了非CASNFP_RoboticArmPart部件
-                            MessageBox.Instance.ShowDialog ("错误",$"机械臂部件不连续，索引为{index[j]}和{index[j + 1]}之间夹杂了非CASNFP_RoboticArmPart部件，请检查机械臂部件是否正确连接。");
+                            Debug.LogError($"错误:机械臂部件不连续，索引为{index[j]}和{index[j + 1]}之间夹杂了非CASNFP_RoboticArmPart部件，请检查机械臂部件是否正确连接。");
                             return null;
                         }
                     }
