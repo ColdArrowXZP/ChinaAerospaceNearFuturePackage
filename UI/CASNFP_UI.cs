@@ -74,7 +74,11 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
         protected override void OnDestroy ()
         {
             base. OnDestroy ();
-
+            if(popupDialog != null ) {PopupDialog.Destroy (popupDialog);}
+            if ( _armAutoCtrl != null )
+            {
+                Destroy (_armAutoCtrl);
+            }
         }
         protected override void OnFalse ()
         {
