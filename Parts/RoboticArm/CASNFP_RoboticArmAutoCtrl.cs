@@ -67,18 +67,23 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             else
             {
                 CreatArmSelectionWindow(roboticArmIndex);
-                if ( CurrentIndex < roboticArmIndex.Count)
-                InitializeCurrentArm (default, roboticArmIndex[CurrentIndex]);
             }
+        }
+        public override void OnPartCreatedFomInventory(ModuleInventoryPart moduleInventoryPart)
+        {
+            base.OnPartCreatedFomInventory(moduleInventoryPart);
         }
         public void OnDestroy()
         {
             onValueChanged -= new Action<int, int>(OnValueChanged);
+            if (part.packed) 
+            {
+                
+            }
         }
-
         public override void OnSave(ConfigNode node)
         {
-            if (!HighLogic. LoadedSceneIsFlight ||  base. vessel == null  || !base. vessel. loaded)
+            if (!HighLogic. LoadedSceneIsFlight || base. vessel == null  || !base. vessel. loaded)
             {
                 return;
             }
@@ -96,7 +101,6 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             //刷新控制面板内容
             label.Update();
             Debug.Log($"原有机械臂序号是{oldIndex}，新的机械臂序号是{newIndex}");
-            InitializeCurrentArm(roboticArmIndex[oldIndex], roboticArmIndex[newIndex]);
 
         }
         struct CheckAndDistinguishThePart
@@ -631,7 +635,6 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         }
     }
         #endregion
-
     }
 
 }
