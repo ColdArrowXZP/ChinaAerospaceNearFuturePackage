@@ -116,6 +116,7 @@ namespace ChinaAeroSpaceNearFuturePackage. UI
                 dialog = null;
             }
             StopTimeout ();
+            Debug. Log ($"messageBox的destroy:实体还存在?{gameObject != null}");
         }
     }
 }

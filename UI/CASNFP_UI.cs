@@ -9,19 +9,25 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
     [KSPAddon (KSPAddon. Startup. Flight,false)]
     public class CASNFP_UI : AppLauncherBtn
     {
+        private CASNFP_UI (){}
         private static CASNFP_UI instance;
         public static CASNFP_UI Instance { get => instance; }
-        private CASNFP_RoboticArmAutoCtrl _armAutoCtrl;
-        public CASNFP_RoboticArmAutoCtrl ArmAutoCtrl
+        private CASNFP_SetRocAutoCtrl _armAutoCtrl;
+        public CASNFP_SetRocAutoCtrl ArmAutoCtrl
         {
             get { return _armAutoCtrl; }
         }
         protected override void Awake ()
         {
-            //在厂房或者飞行界面生成启动按钮。
-            base. Awake ();
             //设置单例
-            instance = this;
+            if ( instance == null )
+            {
+                instance = this;
+            }
+            //在飞行界面生成启动按钮。
+            base. Awake ();
+            
+            
         }
         public Rect rect = new Rect(0.5f, 0.5f, 300f, 200f);
         public MultiOptionDialog multi;
@@ -67,7 +73,7 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
                 }
                 CASNFP_RoboticArmPart = CASNFP_RoboticArmPartList.ToArray ();
                 //启动机械臂自动控制的UI控制窗口
-                _armAutoCtrl = CASNFP_RoboticArmAutoCtrl.Instance;
+                _armAutoCtrl = CASNFP_SetRocAutoCtrl.Instance;
                 _armAutoCtrl. CASNFP_RoboticArmPart = CASNFP_RoboticArmPart;
             }
         }
@@ -75,9 +81,13 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
         {
             base. OnDestroy ();
             if(popupDialog != null ) {PopupDialog.Destroy (popupDialog);}
-            if ( _armAutoCtrl != null )
+            if ( ArmAutoCtrl != null )
             {
                 Destroy (_armAutoCtrl);
+            }
+            if ( instance != null )
+            {
+                instance = null;
             }
         }
         protected override void OnFalse ()

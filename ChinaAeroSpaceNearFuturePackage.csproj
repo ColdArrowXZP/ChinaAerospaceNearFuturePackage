@@ -137,6 +137,7 @@
     <Compile Include="Parts\RoboticArm\ArmWorkType.cs" />
     <Compile Include="Parts\RoboticArm\ModuleCASNFP_RoboticArmPart.cs" />
     <Compile Include="Parts\ModuleInterstageFairing.cs" />
+    <Compile Include="Parts\RoboticArm\RocArmAutoCtrl.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
@@ -146,7 +147,7 @@
     <Compile Include="Tools&amp;Settings\SettingLoader.cs" />
     <Compile Include="Tools&amp;Settings\CASNFP_Globals.cs" />
     <Compile Include="UI\AppLauncherBtn.cs" />
-    <Compile Include="Parts\RoboticArm\CASNFP_RoboticArmAutoCtrl.cs" />
+    <Compile Include="Parts\RoboticArm\CASNFP_SetRocAutoCtrl.cs" />
     <Compile Include="UI\CASNFP_UI.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UI\MessageBox.cs" />

@@ -19,8 +19,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             {
             get => armType;
         }
-
-        
         public override void OnStart (StartState state)
         {
             base. OnStart (state);
@@ -57,8 +55,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     throw new ArgumentOutOfRangeException (nameof (thisPartBelongWorkType), "Invalid arm type index");
             }
         }
-
-        
 
     }
 }

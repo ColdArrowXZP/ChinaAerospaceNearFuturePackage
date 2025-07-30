@@ -1,32 +1,28 @@
 ﻿using ChinaAeroSpaceNearFuturePackage.UI;
 using Expansions.Serenity;
-using KSP. Localization;
 using System;
 using System. Collections. Generic;
 using System. Linq;
 using UnityEngine;
-using UnityEngine. UIElements;
 namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 {
-    public class CASNFP_RoboticArmAutoCtrl:MonoBehaviour
+    public class CASNFP_SetRocAutoCtrl:MonoBehaviour
     {
         bool isStartingAutoCtrl = false;
         //实现控制器UI为单例
-        private static CASNFP_RoboticArmAutoCtrl _instance;
-        private CASNFP_RoboticArmAutoCtrl ()
-        {
-        }
-        public static CASNFP_RoboticArmAutoCtrl Instance
+        private static CASNFP_SetRocAutoCtrl _instance;
+        private CASNFP_SetRocAutoCtrl (){}
+        public static CASNFP_SetRocAutoCtrl Instance
         {
             get
             {
                 if ( _instance == null )
                 {
-                    _instance = FindObjectOfType<CASNFP_RoboticArmAutoCtrl> ();
+                    _instance = FindObjectOfType<CASNFP_SetRocAutoCtrl> ();
                     if ( _instance == null )
                     {
-                        GameObject go = new GameObject (typeof (CASNFP_RoboticArmAutoCtrl). Name);
-                        _instance = go. AddComponent<CASNFP_RoboticArmAutoCtrl> ();
+                        GameObject go = new GameObject (typeof (CASNFP_SetRocAutoCtrl). Name);
+                        _instance = go. AddComponent<CASNFP_SetRocAutoCtrl> ();
                     }
                     else
                     {
@@ -74,10 +70,9 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         /// </summary>
         public void Awake ()
         {
-            if ( _instance != null && _instance != this )
+            if ( _instance == null)
             {
-                Destroy (gameObject);
-                return;
+                _instance = this;
             }
         }
         public void Start ()
@@ -111,110 +106,57 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 else
                 {
                     currentWorkingRoboticArm = roboticArmIndex[0];
+                    Debug. Log ("仅检测到一个机械臂，直接进入自动控制状态。");
                     isStartingAutoCtrl = true;
                 }
             }
         }
+        RocArmAutoCtrl armAutoCtrl;
+        Vector3 targetPoint = Vector3.zero;
         public void Update ()
         {
-            if ( !isStartingAutoCtrl )
+            if ( !isStartingAutoCtrl)
                 return;
-            if(currentWorkingRoboticArm.armWorkType == ArmWorkType.Sample_ChangE)
-            HandleSamplePointSelection (currentWorkingRoboticArm);
-
-        }
-        private void HandleSamplePointSelection (OriginalArm currentWorkingArm)
-        {
-            //生成一个绿色的可视化圆环；
-            SetSampleMaxRange (currentWorkingArm);
-
-            ScreenMessages. PostScreenMessage (
-                Localizer. Format ("请左键选择取样地点", vessel. GetDisplayName ()),
-                1f, ScreenMessageStyle. UPPER_LEFT);
-
-            if ( !Input. GetMouseButtonDown (0) )
-                return;
-
-            if ( !TryGetValidSamplePoint (out Vector3 clickPoint) )
-                return;
-
-            CalculateAndMoveArm (clickPoint);
-        }
-        float armLength;
-        float positionTerrainHeight;
-        private void SetSampleMaxRange (OriginalArm currentWorkingArm)
-        {
-            List<Vector3> sevroPos = new List<Vector3>();
-            for (int i = 0 ; i< currentWorkingArm. armParts.Length ;i++ )
-            {
-                sevroPos. Add (currentWorkingArm. armParts[i]. FindModuleImplementing<BaseServo> (). servoTransformPosition);
+            if ( armAutoCtrl == null )
+            {   
+                armAutoCtrl = new RocArmAutoCtrl(currentWorkingRoboticArm.armWorkType,currentWorkingRoboticArm.armParts);
             }
-            armLength = CalculateArmLength (sevroPos);
-            positionTerrainHeight = CalculatePositionTerrainHeight (sevroPos[0]);
-            float radius = (float)Math. Sqrt (armLength * armLength - positionTerrainHeight * positionTerrainHeight);
-
-
-            LineRenderer lineRenderer = gameObject. AddComponent<LineRenderer> ();
-            lineRenderer. useWorldSpace = false;
-            lineRenderer. startWidth = width;
-            lineRenderer. endWidth = width;
-            lineRenderer. positionCount = segments + 1;
-            lineRenderer. material = new Material (Shader. Find ("Sprites/Default"));
-            lineRenderer. startColor = color;
-            lineRenderer. endColor = color;
-
-            float angle = 0f;
-            for ( int i = 0 ; i < segments + 1 ; i++ )
-            {
-                float x = Mathf. Sin (Mathf. Deg2Rad * angle) * radius;
-                float y = Mathf. Cos (Mathf. Deg2Rad * angle) * radius;
-                lineRenderer. SetPosition (i, new Vector3 (x, y, 0));
-                angle += 360f / segments;
-            }
-
-            transform. position = new Vector3 (position. x, position. y, 0);
-            Material material = new Material (Shader. Find ("KSP/Particles/Additive"));
-            material. SetColor ("_TintColor", Color. green);
-            GameObject clickPointObj = GameObject. CreatePrimitive (PrimitiveType. Sphere);
-            clickPointObj. transform. position = baseSevroPos;
-            clickPointObj. transform. localScale = Vector3. one * 0.1f;
-            clickPointObj. GetComponent<MeshRenderer> (). material = material;
+            //这里设置一个可视化的圆环
+            armAutoCtrl. SetSampleMaxRange ();
+            isStartingAutoCtrl = false;
+            //鼠标确定目标点
+            //if ( targetPoint == Vector3. zero )
+            //{
+            //    targetPoint = armAutoCtrl. SetTarget ();
+            //}
+            //else
+            //{
+            //    //如果目标点可以到达，计算各关节角度，开始移动；否则重新选择目标点。
+            //    if ( armAutoCtrl.CalculatorCanReach (ref targetPoint) )
+            //    {
+            //        armAutoCtrl. MoveTo (targetPoint);
+            //        isStartingAutoCtrl = false;
+            //    }
+            //    else
+            //    {
+            //        targetPoint = Vector3.zero; 
+            //    }
+            //}
+            
+            
         }
-
-        private float CalculatePositionTerrainHeight (Vector3 vector3)
-        {
-            float heightFromTerrain = -1f;
-            Vector3 vector = FlightGlobals. getUpAxis (FlightGlobals. getMainBody (), vector3);
-            float num = FlightGlobals. getAltitudeAtPos (vector3,FlightGlobals.getMainBody());
-            if ( num < 0 )
-            {
-                num = 0 - (float)currentWorkingRoboticArm. armParts[0]. vessel. PQSAltitude ();
-            }
-            num += 600f;
-            RaycastHit hit;
-            if ( Physics. Raycast (vector3, -vector, out hit, num, 32768, QueryTriggerInteraction. Ignore) )
-            {
-                heightFromTerrain = hit. distance;
-            }
-            return heightFromTerrain;
-        }
-
-        private float CalculateArmLength (List<Vector3> sevroPos)
-        {
-            float armLength = 0;
-            for ( int i = 0 ; i < sevroPos.Count; i++ )
-            {
-                if ( i == 0 || i == sevroPos. Count-1 )
-                    continue;
-                armLength += Vector3. Distance (sevroPos[i], sevroPos[i + 1]);
-            }
-            return armLength;
-        }
-
         public void OnDestroy ()
         {
             OnSave (thisSetting);
             onValueChanged -= new Action<Vector2> (OnValueChanged);
+            if ( armAutoCtrl != null )
+            {
+                armAutoCtrl = null;
+            }
+            if (Instance != null )
+            {
+                _instance = null;
+            }
         }
         private void OnSave (ConfigNode node)
         {
@@ -242,7 +184,6 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             //刷新控制面板内容
             label. Update ();
             Debug. Log ($"原有机械臂序号是{actionPram.x}，新的机械臂序号是{actionPram.y}");
-            //原有机械臂动作逻辑
             if ( actionPram.x >= 0 )
             {
                 foreach ( var item in roboticArmIndex[(int)actionPram.x]. armParts )
@@ -250,7 +191,6 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                     item. Highlight (false);
                 }
             }
-            //新机械臂动作逻辑
             if ( actionPram.y >= 0 )
             {
                 foreach ( var item in roboticArmIndex[( int )actionPram. y].armParts )
@@ -259,17 +199,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 }
             }
         }
-        struct CheckAndDistinguishThePart
-        {
-            public ArmWorkType armWorkType;
-            public Part part;
-            public ArmPartType partType;
-        }
-        struct OriginalArm
-        {
-            public ArmWorkType armWorkType;
-            public Part[] armParts;
-        }
+        
         #region 生成一个用户选择窗口，当用户选择机械臂时，CurrentIndex数值变化的事件触发
         /// <summary>
         /// 创建机械臂选择窗口
@@ -560,7 +490,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             return null; //如果机械臂类型不在上述范围内，则返回null
         }
         #endregion
-        static OriginalArm currentWorkingRoboticArm = default (OriginalArm);
+        public static OriginalArm currentWorkingRoboticArm = default (OriginalArm);
         private void ConfirmSelection ()
         {
             OnSave (thisSetting);
@@ -584,8 +514,6 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 
             }
             currentWorkingRoboticArm = roboticArmIndex[(int)actionPram.y];
-            //这里写新机械臂控制逻辑
-            Debug. Log ($"激活{( int )actionPram. y}机械臂,开始执行机械臂控制程序");
             isStartingAutoCtrl = true;
         }
         
