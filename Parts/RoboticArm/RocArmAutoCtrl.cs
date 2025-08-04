@@ -1,5 +1,7 @@
-﻿using Expansions. Serenity;
+﻿using ChinaAeroSpaceNearFuturePackage. UI;
+using Expansions. Serenity;
 using KSP. Localization;
+using KSP. UI. Screens;
 using System;
 using System. Collections. Generic;
 using System. Linq;
@@ -25,6 +27,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
 
     public class RocArmAutoCtrl
     {   
+        
         public ArmWorkType WorkType
         {
             get;
@@ -42,85 +45,98 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         public float positionTerrainHeight = 0;
         public bool CanBeReach;
         Vector3 targetPoint;
-        public Vector3 SetTarget ()
+        public void StartCtrl ()
         {
+
+            //区分开机械臂类型的，分别启动不同的控制逻辑。
+            SeparateWorkType ();
+        }
+        private void SeparateWorkType ()
+        {
+            //启动各工作臂目标设置逻辑，目前只写取样臂逻辑。
             switch ( WorkType )
             {
                 case ArmWorkType. Sample_ChangE:
-                    SampleTargetSet (out targetPoint);
+                    SampleTargetSet ();
                     break;
                 case ArmWorkType. Walk_TianGong:
-                    WorkTargetSet (out targetPoint);
+                    WorkTargetSet ();
                     break;
                 case ArmWorkType. Grabbing:
-                    GrabbingTargetSet(out targetPoint);
+                    GrabbingTargetSet();
                     break;
                 case ArmWorkType. Camera:
-                    CamTargetSet (out targetPoint);
+                    CamTargetSet ();
                     break;
             }
-            return targetPoint;
         }
-
-        private void SampleTargetSet (out Vector3 targetPoint)
+        /// <summary>
+        /// 取样机械臂的目标点获取逻辑，首先计算总臂长，再计算基座的地形高度，获得取样范围，设置个绿色圆环提示玩家
+        /// </summary>
+        private void SampleTargetSet ()
         {
-
-            var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
-
-            if ( !Physics. Raycast (ray, out RaycastHit hit) || hit. collider == null )
-            {
-                targetPoint = Vector3. zero;
-                return;
-            }
-
-            if ( hit. collider. gameObject. layer != 15 )
-            {
-                ScreenMessages. PostScreenMessage (
-                    Localizer. Format ($"选择取样地点为{hit. collider. gameObject. name}不正确，请选择地面取样点"),
-                    2f, ScreenMessageStyle. UPPER_RIGHT);
-                targetPoint = Vector3. zero;
-                return;
-            }
-            targetPoint = hit. point;
-        }
-
-        private void CamTargetSet (out Vector3 targetPoint)
-        {
-            throw new NotImplementedException ();
-        }
-
-        private void GrabbingTargetSet (out Vector3 targetPoint)
-        {
-            throw new NotImplementedException ();
-        }
-
-        private void WorkTargetSet (out Vector3 targetPoint)
-        {
-            throw new NotImplementedException ();
-        }
-
-        public bool SetSampleMaxRange ()
-        {
+            //开始计算取样范围，设置一个绿色圆环供玩家参考取样点
             Debug. Log ("开始设置绿环");
-            //List<Vector3> sevroPos = new List<Vector3> ();
-            //for ( int i = 0 ; i < ArmParts. Length ; i++ )
+            armLength = CalculateArmLength ();//计算大臂长度
+            positionTerrainHeight = CalculatePositionTerrainHeight (out Vector3 ringCenter, out Vector3 normal);
+            if ( positionTerrainHeight < 0 )
+            {
+                Debug. Log ("所处位置没有检测到地面碰撞体");
+                return;
+            }
+            if ( positionTerrainHeight >= armLength/2 )//这里的比较也有问题，暂时不管。
+            {
+                Debug. Log ("机械臂距离地面过高，超出最大工作范围，无法设置取样点");
+                return;
+            }
+            float radius = ( float )Math. Sqrt (armLength * armLength - positionTerrainHeight * positionTerrainHeight);
+            Debug. Log ("计算得出绿环半径为："+radius);
+            SetSampleMaxRange (radius, ringCenter, normal);
+            //开始获取鼠标点击事件
+            //var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
+
+            //if ( !Physics. Raycast (ray, out RaycastHit hit) || hit. collider == null )
             //{
-            //    sevroPos. Add (ArmParts[i]. FindModuleImplementing<BaseServo> (). servoTransformPosition);
+            //    targetPoint = Vector3. zero;
+            //    return;
             //}
-            //armLength = CalculateArmLength (sevroPos);
-            //positionTerrainHeight = CalculatePositionTerrainHeight (sevroPos[0],ArmParts[0]);
-            //float radius = ( float )Math. Sqrt (armLength * armLength - positionTerrainHeight * positionTerrainHeight);
-            //if ( radius < 0.3f )
+
+            //if ( hit. collider. gameObject. layer != 15 )
             //{
-            //    Debug. Log ("机械臂距离地面过高，超出最大工作范围，无法设置取样点"+radius);
-            //    return false;
+            //    ScreenMessages. PostScreenMessage (
+            //        Localizer. Format ($"选择取样地点为{hit. collider. gameObject. name}不正确，请选择地面取样点"),
+            //        2f, ScreenMessageStyle. UPPER_RIGHT);
+            //    targetPoint = Vector3. zero;
+            //    return;
             //}
-            float radius = 5f;
+            //targetPoint = hit. point;
+        }
+
+        private void CamTargetSet ()
+        {
+            throw new NotImplementedException ();
+        }
+
+        private void GrabbingTargetSet ()
+        {
+            throw new NotImplementedException ();
+        }
+
+        private void WorkTargetSet ()
+        {
+            throw new NotImplementedException ();
+        }
+
+        public void SetSampleMaxRange (float ringRadius, Vector3 ringCenter,Vector3 normal)
+        {
+           
+            float radius = ringRadius;
             GameObject gameObject = new GameObject ();
             LineRenderer lineRenderer = gameObject. AddComponent<LineRenderer> ();
             lineRenderer. useWorldSpace = false;
             lineRenderer. startWidth = 0.15f;
             lineRenderer. endWidth = 0.15f;
+            lineRenderer.loop = true;
             lineRenderer. positionCount = 64 + 1;
             lineRenderer. material = new Material (Shader. Find ("KSP/Particles/Additive"));
             lineRenderer. startColor = Color. green;
@@ -133,44 +149,75 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 lineRenderer. SetPosition (i, new Vector3 (x, y, 0));
                 angle += 360f / 64;
             }
-            gameObject. transform. position = ArmParts[0].transform.position;
-            gameObject.transform.parent = ArmParts[0].transform;
-            Debug. Log ("绿环设置完成");
-            return true;
+            gameObject. transform. position = ringCenter;
+            gameObject.transform.rotation = Quaternion.LookRotation(normal,gameObject.transform.right);
+            gameObject. transform. SetParent (ArmParts[0]. transform);
         }
-        public float CalculateArmLength (List<Vector3> sevroPos)
+        public float CalculateArmLength ()
         {
             Debug. Log ("开始计算臂长");
             float armLength = 0;
-            for ( int i = 0 ; i < sevroPos. Count ; i++ )
+            List<Vector3> linkNodePos = new List<Vector3> ();
+            foreach ( Part part in ArmParts )
             {
-                if ( i == 0 || i == sevroPos. Count - 1 )
-                    continue;
-                armLength += Vector3. Distance (sevroPos[i], sevroPos[i + 1]);
+                if ( part. FindModuleImplementing<ModuleCASNFP_RoboticArmPart> (). ArmPartType == ArmPartType. link )
+                    
+                    linkNodePos. Add (part. gameObject. GetChild (part. FindModuleImplementing<ModuleRoboticServoHinge> (). servoTransformName). transform. position);
+            }
+            for ( int i = 1 ; i < linkNodePos. Count ; i++ )
+            {
+                armLength += ( linkNodePos[i] - linkNodePos[i - 1] ). magnitude;
             }
             Debug. Log ("臂长为"+armLength);
-            return armLength;
+            return armLength*2;//这里默认是大小臂相等且只有两段，是不对的，以后再修改这里臂长的计算方法。
         }
-        public float CalculatePositionTerrainHeight (Vector3 vector3,Part part)
+        public float CalculatePositionTerrainHeight (out Vector3 ringCenter,out Vector3 normal)
         {
             Debug. Log ("开始计算基座地形高度");
             float heightFromTerrain = -1f;
-            Vector3 vector = FlightGlobals. getUpAxis (FlightGlobals. getMainBody (), vector3);
-            float num = FlightGlobals. getAltitudeAtPos (vector3, FlightGlobals. getMainBody ());
-            if ( num < 0 )
+            Part basePart = null;
+            foreach ( Part part in ArmParts )
             {
-                num = 0 - ( float )part.vessel. PQSAltitude ();
+                if ( part. FindModuleImplementing<ModuleCASNFP_RoboticArmPart> (). ArmPartType == ArmPartType. Base )
+                {
+                    basePart = part;
+                    break;
+                } 
             }
-            num += 600f;
-            RaycastHit hit;
-            if ( Physics. Raycast (vector3, -vector, out hit, num, 32768, QueryTriggerInteraction. Ignore) )
+            Vector3 basePos = basePart. gameObject. GetChild (basePart. FindModuleImplementing<ModuleRoboticServoHinge> (). baseTransformName). transform.position;
+            Vector3 calNormal = (Vector3)FlightGlobals.getUpAxis (FlightGlobals. getMainBody (), basePos).normalized;
+            float num = (float)FlightGlobals. getMainBody ().Radius/2;
+            RaycastHit[] hits = Physics. RaycastAll(basePos,-calNormal, num);
+            ringCenter = new Vector3 (0,0,0);
+            normal = new Vector3 (0,0,0);
+            foreach ( var item in hits )
             {
-                heightFromTerrain = hit. distance;
+                if ( item. collider.gameObject.layer == 15)
+                {
+                    
+                    RaycastHit rightHit = item;
+                    heightFromTerrain = rightHit. distance;
+                    ringCenter = rightHit. point;
+                    normal = rightHit. normal;
+                    break;
+                }
             }
-           
-            Debug. Log ("基座地形高度为"+ heightFromTerrain);
+            Debug. Log ("基座地形高度"+ heightFromTerrain+"     绿环中心"+ringCenter+"   绿环法向"+normal);
             return heightFromTerrain;
         }
+        //private void DrawARay (Vector3 startPos,Vector3 endPos,Color color)
+        //{
+        //    GameObject gameObject = new GameObject ();
+        //    LineRenderer lineRenderer = gameObject. AddComponent<LineRenderer> ();
+        //    lineRenderer. useWorldSpace = true;
+        //    lineRenderer. startWidth = 0.1f;
+        //    lineRenderer. endWidth = 0.1f;
+        //    lineRenderer. material = new Material (Shader. Find ("KSP/Particles/Additive"));
+        //    lineRenderer. startColor = color;
+        //    lineRenderer. endColor = color;
+        //    lineRenderer. SetPositions (new Vector3[] {startPos,endPos} );
+        //    gameObject. transform. SetParent (ArmParts[0]. transform);
+        //}
         Vector3 targetPos;
         private bool HandleSamplePointSelection ()
         {
@@ -180,11 +227,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 return false;
             }
             //生成一个绿色的可视化圆环；
-            if ( !SetSampleMaxRange () )
-            {
-                Debug. Log ("未成功生成取样范围圆环");
-                return false;
-            }
+            
             ScreenMessages. PostScreenMessage ("请左键选择取样地点", 1f, ScreenMessageStyle. UPPER_LEFT);
             if ( !Input. GetMouseButtonDown (0) )
                 return false;

@@ -122,8 +122,9 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 armAutoCtrl = new RocArmAutoCtrl(currentWorkingRoboticArm.armWorkType,currentWorkingRoboticArm.armParts);
             }
             //这里设置一个可视化的圆环
-            armAutoCtrl. SetSampleMaxRange ();
-            isStartingAutoCtrl = false;
+            armAutoCtrl.StartCtrl();
+            isStartingAutoCtrl= false;
+            
             //鼠标确定目标点
             //if ( targetPoint == Vector3. zero )
             //{
