@@ -8,7 +8,50 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
 {
     public class CASNFP_SetRocAutoCtrl:MonoBehaviour
     {
+        /// <summary>
+        /// 所有的字段
+        /// </summary>
+        [KSPField (isPersistant = true)]
+        int currentIndex;
         bool isStartingAutoCtrl = false;
+        ConfigNode thisSetting = SettingLoader. CASNFP_GlobalSettings;
+        Vector2 actionPram;
+        Dictionary<int, OriginalArm> roboticArmIndex;
+        public Part[] CASNFP_RoboticArmPart;
+        public Action<Vector2> onValueChanged;
+        Vector3 targetPoint = Vector3. zero;
+        bool isTargetRingSetUp = false;
+        public static OriginalArm currentWorkingRoboticArm = default (OriginalArm);
+        public GameObject sampleMaxRangeRing;
+        /// <summary>
+        /// 所有的属性
+        /// </summary>
+        public int CurrentIndex
+        {
+            get
+            {
+                return currentIndex;
+            }
+            set
+            {
+                if ( currentIndex != value )
+                {
+                    actionPram.x = currentIndex;
+                    actionPram.y = value;
+                    currentIndex = value;
+                    OnValueChanged (actionPram);
+                }
+
+            }
+        }
+        public bool IsStartingAutoCtrl
+        {
+            get; private set;
+        }
+
+        /// <summary>
+        /// 构造函数
+        /// </summary>
         //实现控制器UI为单例
         private static CASNFP_SetRocAutoCtrl _instance;
         private CASNFP_SetRocAutoCtrl (){}
@@ -38,39 +81,16 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             
         }
 
-        [KSPField (isPersistant = true)]
-        int currentIndex;
 
-        ConfigNode thisSetting = SettingLoader. CASNFP_GlobalSettings;
-        public int CurrentIndex
-        {
-            get
-            {
-                return currentIndex;
-            }
-            set
-            {
-                if ( currentIndex != value )
-                {
-                    actionPram.x = currentIndex;
-                    actionPram.y = value;
-                    currentIndex = value;
-                    OnValueChanged (actionPram);
-                }
-
-            }
-        }
-        Vector2 actionPram;
-        Dictionary<int, OriginalArm> roboticArmIndex;
-        public Part[] CASNFP_RoboticArmPart;
-        public Action<Vector2> onValueChanged;
-
+        /// <summary>
+        /// unity事件
+        /// </summary>
         /// <summary>
         /// 机械臂自动控制程序，先区分有几个机械臂，然后让玩家选择一个机械臂进行控制，判断机械臂类型，选择目标位置和目标姿态，控制机械臂到达目标位置和姿态，按计划开始工作。
         /// </summary>
         public void Awake ()
         {
-            if ( _instance == null)
+            if ( _instance == null )
             {
                 _instance = this;
             }
@@ -107,100 +127,209 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 {
                     currentWorkingRoboticArm = roboticArmIndex[0];
                     Debug. Log ("仅检测到一个机械臂，直接进入自动控制状态。");
-                    isStartingAutoCtrl = true;
+                    IsStartingAutoCtrl = true;
                 }
             }
         }
-        RocArmAutoCtrl armAutoCtrl;
-        Vector3 targetPoint = Vector3.zero;
+
         public void Update ()
         {
-            if ( !isStartingAutoCtrl)
+            if (!HighLogic.LoadedSceneIsFlight || !IsStartingAutoCtrl)
                 return;
-            if ( armAutoCtrl == null )
-            {   
-                armAutoCtrl = new RocArmAutoCtrl(currentWorkingRoboticArm.armWorkType,currentWorkingRoboticArm.armParts);
+            if ( currentWorkingRoboticArm. armParts[0].vessel.srf_velocity.magnitude > 0.01d )
+            {
+                Debug. Log (currentWorkingRoboticArm. armParts[0]. vessel. srf_velocity. magnitude);
+                MessageBox. Instance. ShowDialog ("错误", "载具处于移动中，请停止移动后取样", 5f);
+                return;
             }
             //这里设置一个可视化的圆环
-            armAutoCtrl.StartCtrl();
-            isStartingAutoCtrl= false;
-            
-            //鼠标确定目标点
-            //if ( targetPoint == Vector3. zero )
-            //{
-            //    targetPoint = armAutoCtrl. SetTarget ();
-            //}
-            //else
-            //{
-            //    //如果目标点可以到达，计算各关节角度，开始移动；否则重新选择目标点。
-            //    if ( armAutoCtrl.CalculatorCanReach (ref targetPoint) )
-            //    {
-            //        armAutoCtrl. MoveTo (targetPoint);
-            //        isStartingAutoCtrl = false;
-            //    }
-            //    else
-            //    {
-            //        targetPoint = Vector3.zero; 
-            //    }
-            //}
-            
-            
+            if ( !isTargetRingSetUp )
+            {
+                SeparateWorkType ();
+            }
+            else
+            {
+                MessageBox. Instance. ShowDialog ("错误","设置圆环失败",5f);
+            }
+            IsStartingAutoCtrl = false;
         }
         public void OnDestroy ()
         {
             OnSave (thisSetting);
             onValueChanged -= new Action<Vector2> (OnValueChanged);
-            if ( armAutoCtrl != null )
+            if ( sampleMaxRangeRing != null )
             {
-                armAutoCtrl = null;
+                Destroy (sampleMaxRangeRing);
             }
-            if (Instance != null )
+            if ( Instance != null )
             {
                 _instance = null;
             }
         }
-        private void OnSave (ConfigNode node)
-        {
-            if ( !HighLogic. LoadedSceneIsFlight )
-            {
-                return;
-            }
-            if ( node == null )
-                return;
-            if ( node. HasValue ("currentIndex") )
-            {
-                if(int.Parse(node.GetValue ("currentIndex"))  != currentIndex )
-                node. SetValue ("currentIndex", currentIndex, true);
-            }
-            else
-                node. SetValue ("currentIndex", currentIndex, true);
-        }
+
+
+
+
         /// <summary>
-        /// CurrentIndex数值变化的事件执行逻辑
+        /// 所有的方法
         /// </summary>
-        /// <param name="oldIndex">前一个选择的机械臂序号，默认选择0号机械臂</param>
-        /// <param name="newIndex">当前选择的机械臂序号</param>
-        protected virtual void OnValueChanged (Vector2 actionPram)
+        #region 在确定机械臂后，这里是主要的计算逻辑。
+        private float armLength = 0;
+        private float positionTerrainHeight = 0;
+        private bool CanBeReach;
+        private void SeparateWorkType ()
         {
-            //刷新控制面板内容
-            label. Update ();
-            Debug. Log ($"原有机械臂序号是{actionPram.x}，新的机械臂序号是{actionPram.y}");
-            if ( actionPram.x >= 0 )
+            //启动各工作臂目标设置逻辑，目前只写取样臂逻辑。
+            switch ( currentWorkingRoboticArm.armWorkType )
             {
-                foreach ( var item in roboticArmIndex[(int)actionPram.x]. armParts )
-                {
-                    item. Highlight (false);
-                }
+                case ArmWorkType. Sample_ChangE:
+                    isTargetRingSetUp = SampleTargetSet ();
+                    break;
+                case ArmWorkType. Walk_TianGong:
+                    isTargetRingSetUp = WorkTargetSet ();
+                    break;
+                case ArmWorkType. Grabbing:
+                    isTargetRingSetUp = GrabbingTargetSet ();
+                    break;
+                case ArmWorkType. Camera:
+                    isTargetRingSetUp = CamTargetSet ();
+                    break;
             }
-            if ( actionPram.y >= 0 )
+        }
+        private bool SampleTargetSet ()
+        {
+            //开始计算取样范围，设置一个绿色圆环供玩家参考取样点
+            Debug. Log ("开始设置绿环");
+            armLength = CalculateArmLength ();//计算大臂长度
+            positionTerrainHeight = CalculatePositionTerrainHeight (out Vector3 ringCenter, out Vector3 normal);
+            if ( positionTerrainHeight < 0 )
             {
-                foreach ( var item in roboticArmIndex[( int )actionPram. y].armParts )
-                {
-                    item. Highlight (true);
-                }
+                MessageBox. Instance. ShowDialog ("错误", "飞船所处位置没有检测到地面实体", 5f);
+                return false;
             }
+            if ( positionTerrainHeight >= armLength / 2 )//这里的比较也有问题，暂时不管。
+            {
+                MessageBox. Instance. ShowDialog ("错误", "机械臂距离地面过高，超出最大工作范围，无法设置取样点", 5f);
+                return false;
+            }
+            float radius = ( float )Math. Sqrt (armLength * armLength - positionTerrainHeight * positionTerrainHeight);
+            Debug. Log ("计算得出绿环半径为：" + radius);
+            SetSampleMaxRange (radius, ringCenter, normal);
+            //开始获取鼠标点击事件
+            //var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
+
+            //if ( !Physics. Raycast (ray, out RaycastHit hit) || hit. collider == null )
+            //{
+            //    targetPoint = Vector3. zero;
+            //    return;
+            //}
+
+            //if ( hit. collider. gameObject. layer != 15 )
+            //{
+            //    ScreenMessages. PostScreenMessage (
+            //        Localizer. Format ($"选择取样地点为{hit. collider. gameObject. name}不正确，请选择地面取样点"),
+            //        2f, ScreenMessageStyle. UPPER_RIGHT);
+            //    targetPoint = Vector3. zero;
+            //    return;
+            //}
+            //targetPoint = hit. point;
+            return true;
+        }
+
+        private bool CamTargetSet ()
+        {
+            throw new NotImplementedException ();
+        }
+
+        private bool GrabbingTargetSet ()
+        {
+            throw new NotImplementedException ();
+        }
+
+        private bool WorkTargetSet ()
+        {
+            throw new NotImplementedException ();
         }
         
+        public void SetSampleMaxRange (float ringRadius, Vector3 ringCenter, Vector3 normal)
+        {
+
+            float radius = ringRadius;
+            sampleMaxRangeRing = new GameObject ();
+            LineRenderer lineRenderer = sampleMaxRangeRing. AddComponent<LineRenderer> ();
+            lineRenderer. useWorldSpace = false;
+            lineRenderer. startWidth = 0.15f;
+            lineRenderer. endWidth = 0.15f;
+            lineRenderer. loop = true;
+            lineRenderer. positionCount = 64 + 1;
+            lineRenderer. material = new Material (Shader. Find ("KSP/Particles/Additive"));
+            lineRenderer. startColor = Color. green;
+            lineRenderer. endColor = Color. green;
+            float angle = 0f;
+            for ( int i = 0 ; i < 64 + 1 ; i++ )
+            {
+                float x = Mathf. Sin (Mathf. Deg2Rad * angle) * radius;
+                float y = Mathf. Cos (Mathf. Deg2Rad * angle) * radius;
+                lineRenderer. SetPosition (i, new Vector3 (x, y, 0));
+                angle += 360f / 64;
+            }
+            sampleMaxRangeRing. transform. position = ringCenter;
+            sampleMaxRangeRing. transform. rotation = Quaternion. LookRotation (normal, sampleMaxRangeRing. transform. right);
+            sampleMaxRangeRing. transform. SetParent (currentWorkingRoboticArm. armParts[0].vessel.transform);
+        }
+        public float CalculateArmLength ()
+        {
+            Debug. Log ("开始计算臂长");
+            float armLength = 0;
+            List<Vector3> linkNodePos = new List<Vector3> ();
+            foreach ( Part part in currentWorkingRoboticArm.armParts )
+            {
+                if ( part. FindModuleImplementing<ModuleCASNFP_RoboticArmPart> (). ArmPartType == ArmPartType. link )
+
+                    linkNodePos. Add (part. gameObject. GetChild (part. FindModuleImplementing<ModuleRoboticServoHinge> (). servoTransformName). transform. position);
+            }
+            for ( int i = 1 ; i < linkNodePos. Count ; i++ )
+            {
+                armLength += ( linkNodePos[i] - linkNodePos[i - 1] ). magnitude;
+            }
+            Debug. Log ("臂长为" + armLength);
+            return armLength * 2;//这里默认是大小臂相等且只有两段，是不对的，以后再修改这里臂长的计算方法。
+        }
+        public float CalculatePositionTerrainHeight (out Vector3 ringCenter, out Vector3 normal)
+        {
+            Debug. Log ("开始计算基座地形高度");
+            float heightFromTerrain = -1f;
+            Part basePart = null;
+            foreach ( Part part in currentWorkingRoboticArm. armParts )
+            {
+                if ( part. FindModuleImplementing<ModuleCASNFP_RoboticArmPart> (). ArmPartType == ArmPartType. Base )
+                {
+                    basePart = part;
+                    break;
+                }
+            }
+            Vector3 basePos = basePart. gameObject. GetChild (basePart. FindModuleImplementing<ModuleRoboticServoHinge> (). baseTransformName). transform. position;
+            Vector3 calNormal = ( Vector3 )FlightGlobals. getUpAxis (FlightGlobals. getMainBody (), basePos). normalized;
+            float num = ( float )FlightGlobals. getMainBody (). Radius / 2;
+            RaycastHit[] hits = Physics. RaycastAll (basePos, -calNormal, num);
+            ringCenter = new Vector3 (0, 0, 0);
+            normal = new Vector3 (0, 0, 0);
+            foreach ( var item in hits )
+            {
+                if ( item. collider. gameObject. layer == 15 )
+                {
+
+                    RaycastHit rightHit = item;
+                    heightFromTerrain = rightHit. distance;
+                    ringCenter = rightHit. point;
+                    normal = rightHit. normal;
+                    break;
+                }
+            }
+            Debug. Log ("基座地形高度" + heightFromTerrain + "     绿环中心" + ringCenter + "   绿环法向" + normal);
+            return heightFromTerrain;
+        }
+        #endregion
         #region 生成一个用户选择窗口，当用户选择机械臂时，CurrentIndex数值变化的事件触发
         /// <summary>
         /// 创建机械臂选择窗口
@@ -254,7 +383,47 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 HighLogic. UISkin
             );
         }
-
+        /// <summary>
+        /// CurrentIndex数值变化的事件执行逻辑
+        /// </summary>
+        /// <param name="oldIndex">前一个选择的机械臂序号，默认选择0号机械臂</param>
+        /// <param name="newIndex">当前选择的机械臂序号</param>
+        protected virtual void OnValueChanged (Vector2 actionPram)
+        {
+            //刷新控制面板内容
+            label. Update ();
+            Debug. Log ($"原有机械臂序号是{actionPram. x}，新的机械臂序号是{actionPram. y}");
+            if ( actionPram. x >= 0 )
+            {
+                foreach ( var item in roboticArmIndex[( int )actionPram. x]. armParts )
+                {
+                    item. Highlight (false);
+                }
+            }
+            if ( actionPram. y >= 0 )
+            {
+                foreach ( var item in roboticArmIndex[( int )actionPram. y]. armParts )
+                {
+                    item. Highlight (true);
+                }
+            }
+        }
+        private void OnSave (ConfigNode node)
+        {
+            if ( !HighLogic. LoadedSceneIsFlight )
+            {
+                return;
+            }
+            if ( node == null )
+                return;
+            if ( node. HasValue ("currentIndex") )
+            {
+                if ( int. Parse (node. GetValue ("currentIndex")) != currentIndex )
+                    node. SetValue ("currentIndex", currentIndex, true);
+            }
+            else
+                node. SetValue ("currentIndex", currentIndex, true);
+        }
         private string GetLabelString ()
         {
             int index = roboticArmIndex. Count;
@@ -284,6 +453,31 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                     }
                 }
             }
+        }
+        private void ConfirmSelection ()
+        {
+            OnSave (thisSetting);
+            //确认选择的机械臂，启动机械臂控制逻辑
+            if ( actionPram. x >= 0 )
+            {
+                Debug. Log ("不是默认值");
+                //有原来选择的机械臂要收回、保持、或取消确认
+                if ( actionPram. x != actionPram. y )
+                {
+                    Debug. Log ("启动回收动作");
+                    foreach ( var item in currentWorkingRoboticArm. armParts )
+                    {
+                        BaseServo servo = item. FindModuleImplementing<BaseServo> ();
+                        if ( servo. Events. Contains ("ResetPosition") )
+                        {
+                            servo. Events["ResetPosition"]. Invoke ();
+                        }
+                    }
+                }
+
+            }
+            currentWorkingRoboticArm = roboticArmIndex[( int )actionPram. y];
+            IsStartingAutoCtrl = true;
         }
         #endregion
         #region 检查机械臂部件并区分机械臂类型
@@ -491,32 +685,5 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             return null; //如果机械臂类型不在上述范围内，则返回null
         }
         #endregion
-        public static OriginalArm currentWorkingRoboticArm = default (OriginalArm);
-        private void ConfirmSelection ()
-        {
-            OnSave (thisSetting);
-            //确认选择的机械臂，启动机械臂控制逻辑
-            if ( actionPram.x >= 0)
-            {
-                Debug. Log ("不是默认值");
-                //有原来选择的机械臂要收回、保持、或取消确认
-                if ( actionPram.x != actionPram.y)
-                {
-                    Debug. Log ("启动回收动作");
-                    foreach ( var item in currentWorkingRoboticArm. armParts )
-                    {
-                        BaseServo servo = item. FindModuleImplementing<BaseServo> ();
-                        if ( servo. Events. Contains ("ResetPosition") )
-                        {
-                            servo. Events["ResetPosition"]. Invoke ();
-                        }
-                    }
-                }
-
-            }
-            currentWorkingRoboticArm = roboticArmIndex[(int)actionPram.y];
-            isStartingAutoCtrl = true;
-        }
-        
     }
 }

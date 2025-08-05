@@ -133,11 +133,9 @@
     <Compile Include="Parts\CASNFP_Arm_CE_SampleArm.cs" />
     <Compile Include="Parts\CASNFP_RoboticArm.cs" />
     <Compile Include="Parts\CZ2F_EscapeTower.cs" />
-    <Compile Include="Parts\RoboticArm\ArmPartType.cs" />
-    <Compile Include="Parts\RoboticArm\ArmWorkType.cs" />
+    <Compile Include="Parts\RoboticArm\ArmHelper.cs" />
     <Compile Include="Parts\RoboticArm\ModuleCASNFP_RoboticArmPart.cs" />
     <Compile Include="Parts\ModuleInterstageFairing.cs" />
-    <Compile Include="Parts\RoboticArm\RocArmAutoCtrl.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
