@@ -1,5 +1,6 @@
 ﻿using ChinaAeroSpaceNearFuturePackage.UI;
 using Expansions.Serenity;
+using KSP. Localization;
 using System;
 using System. Collections. Generic;
 using System. Linq;
@@ -13,16 +14,12 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         /// </summary>
         [KSPField (isPersistant = true)]
         int currentIndex;
-        bool isStartingAutoCtrl = false;
         ConfigNode thisSetting = SettingLoader. CASNFP_GlobalSettings;
         Vector2 actionPram;
         Dictionary<int, OriginalArm> roboticArmIndex;
         public Part[] CASNFP_RoboticArmPart;
-        public Action<Vector2> onValueChanged;
-        Vector3 targetPoint = Vector3. zero;
-        bool isTargetRingSetUp = false;
-        public static OriginalArm currentWorkingRoboticArm = default (OriginalArm);
-        public GameObject sampleMaxRangeRing;
+        private Action<Vector2> onValueChanged;
+        public OriginalArm currentWorkingRoboticArm = default (OriginalArm);
         /// <summary>
         /// 所有的属性
         /// </summary>
@@ -32,7 +29,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             {
                 return currentIndex;
             }
-            set
+            private set
             {
                 if ( currentIndex != value )
                 {
@@ -43,10 +40,6 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 }
 
             }
-        }
-        public bool IsStartingAutoCtrl
-        {
-            get; private set;
         }
 
         /// <summary>
@@ -94,9 +87,14 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             {
                 _instance = this;
             }
+            if ( CASNFP_RoboticArmPart == null )
+            {
+                CASNFP_RoboticArmPart = CASNFP_UI. Instance. CASNFP_RoboticArmPart;
+            }
         }
         public void Start ()
         {
+            Debug. Log ("开始执行自动控制程序");
             if ( thisSetting != null )
             {
                 if ( thisSetting. HasValue ("currentIndex") )
@@ -111,7 +109,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             roboticArmIndex = CheckAndDistinguishTheArm (CASNFP_RoboticArmPart);
             if ( roboticArmIndex. Count == 0 )
             {
-                MessageBox. Instance. ShowDialog ("错误", "没有找到机械臂部件，或自动识别机械臂错误，请检查机械臂部件是否正确连接。");
+                Debug. Log ("错误:" + "没有找到机械臂部件，或自动识别机械臂错误，请检查机械臂部件是否正确连接。");
                 return;
             }
             else
@@ -127,209 +125,85 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 {
                     currentWorkingRoboticArm = roboticArmIndex[0];
                     Debug. Log ("仅检测到一个机械臂，直接进入自动控制状态。");
-                    IsStartingAutoCtrl = true;
+                    SeparateWorkType ();
                 }
             }
         }
 
-        public void Update ()
-        {
-            if (!HighLogic.LoadedSceneIsFlight || !IsStartingAutoCtrl)
-                return;
-            if ( currentWorkingRoboticArm. armParts[0].vessel.srf_velocity.magnitude > 0.01d )
-            {
-                Debug. Log (currentWorkingRoboticArm. armParts[0]. vessel. srf_velocity. magnitude);
-                MessageBox. Instance. ShowDialog ("错误", "载具处于移动中，请停止移动后取样", 5f);
-                return;
-            }
-            //这里设置一个可视化的圆环
-            if ( !isTargetRingSetUp )
-            {
-                SeparateWorkType ();
-            }
-            else
-            {
-                MessageBox. Instance. ShowDialog ("错误","设置圆环失败",5f);
-            }
-            IsStartingAutoCtrl = false;
-        }
+        
+        
         public void OnDestroy ()
         {
             OnSave (thisSetting);
             onValueChanged -= new Action<Vector2> (OnValueChanged);
-            if ( sampleMaxRangeRing != null )
+            if(sampleArmCtrlLogic != null)
             {
-                Destroy (sampleMaxRangeRing);
+                Destroy(sampleArmCtrlLogic);
             }
+            if(workArmCtrlLogic != null)
+            {
+                Destroy(workArmCtrlLogic);
+            }
+            if(grabbingArmCtrlLogic != null)
+            {
+                Destroy(grabbingArmCtrlLogic);
+            }
+            if(cameraArmCtrlLogic != null)
+            {
+                Destroy(cameraArmCtrlLogic);
+            }
+            //如果是单例模式，则销毁实例
             if ( Instance != null )
             {
                 _instance = null;
             }
         }
-
-
-
-
-        /// <summary>
-        /// 所有的方法
-        /// </summary>
-        #region 在确定机械臂后，这里是主要的计算逻辑。
-        private float armLength = 0;
-        private float positionTerrainHeight = 0;
-        private bool CanBeReach;
+        SampleArmCtrlLogic sampleArmCtrlLogic;
+        WorkArmCtrlLogic workArmCtrlLogic;
+        GrabbingArmCtrlLogic grabbingArmCtrlLogic;
+        CameraArmCtrlLogic cameraArmCtrlLogic;
         private void SeparateWorkType ()
         {
+
             //启动各工作臂目标设置逻辑，目前只写取样臂逻辑。
             switch ( currentWorkingRoboticArm.armWorkType )
             {
                 case ArmWorkType. Sample_ChangE:
-                    isTargetRingSetUp = SampleTargetSet ();
+                    if ( !gameObject. TryGetComponent<SampleArmCtrlLogic> (out sampleArmCtrlLogic) )
+                    {
+                        sampleArmCtrlLogic = gameObject. AddComponent<SampleArmCtrlLogic> ();
+                    }
+                    else
+                        sampleArmCtrlLogic. Start();
                     break;
                 case ArmWorkType. Walk_TianGong:
-                    isTargetRingSetUp = WorkTargetSet ();
+                    if ( !gameObject. TryGetComponent<WorkArmCtrlLogic> (out workArmCtrlLogic) )
+                    {
+                        workArmCtrlLogic = gameObject. AddComponent<WorkArmCtrlLogic> ();
+                    }
+                    else
+                        workArmCtrlLogic. Start ();
                     break;
                 case ArmWorkType. Grabbing:
-                    isTargetRingSetUp = GrabbingTargetSet ();
+                    if ( !gameObject. TryGetComponent<GrabbingArmCtrlLogic> (out grabbingArmCtrlLogic) )
+                    {
+                        grabbingArmCtrlLogic = gameObject. AddComponent<GrabbingArmCtrlLogic> ();
+                    }
+                    else
+                        grabbingArmCtrlLogic. Start ();
                     break;
                 case ArmWorkType. Camera:
-                    isTargetRingSetUp = CamTargetSet ();
+                    if ( !gameObject. TryGetComponent<CameraArmCtrlLogic> (out cameraArmCtrlLogic) )
+                    {
+                        cameraArmCtrlLogic = gameObject. AddComponent<CameraArmCtrlLogic> ();
+
+                    }
+                    else
+                        cameraArmCtrlLogic. Start ();
                     break;
             }
         }
-        private bool SampleTargetSet ()
-        {
-            //开始计算取样范围，设置一个绿色圆环供玩家参考取样点
-            Debug. Log ("开始设置绿环");
-            armLength = CalculateArmLength ();//计算大臂长度
-            positionTerrainHeight = CalculatePositionTerrainHeight (out Vector3 ringCenter, out Vector3 normal);
-            if ( positionTerrainHeight < 0 )
-            {
-                MessageBox. Instance. ShowDialog ("错误", "飞船所处位置没有检测到地面实体", 5f);
-                return false;
-            }
-            if ( positionTerrainHeight >= armLength / 2 )//这里的比较也有问题，暂时不管。
-            {
-                MessageBox. Instance. ShowDialog ("错误", "机械臂距离地面过高，超出最大工作范围，无法设置取样点", 5f);
-                return false;
-            }
-            float radius = ( float )Math. Sqrt (armLength * armLength - positionTerrainHeight * positionTerrainHeight);
-            Debug. Log ("计算得出绿环半径为：" + radius);
-            SetSampleMaxRange (radius, ringCenter, normal);
-            //开始获取鼠标点击事件
-            //var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
 
-            //if ( !Physics. Raycast (ray, out RaycastHit hit) || hit. collider == null )
-            //{
-            //    targetPoint = Vector3. zero;
-            //    return;
-            //}
-
-            //if ( hit. collider. gameObject. layer != 15 )
-            //{
-            //    ScreenMessages. PostScreenMessage (
-            //        Localizer. Format ($"选择取样地点为{hit. collider. gameObject. name}不正确，请选择地面取样点"),
-            //        2f, ScreenMessageStyle. UPPER_RIGHT);
-            //    targetPoint = Vector3. zero;
-            //    return;
-            //}
-            //targetPoint = hit. point;
-            return true;
-        }
-
-        private bool CamTargetSet ()
-        {
-            throw new NotImplementedException ();
-        }
-
-        private bool GrabbingTargetSet ()
-        {
-            throw new NotImplementedException ();
-        }
-
-        private bool WorkTargetSet ()
-        {
-            throw new NotImplementedException ();
-        }
-        
-        public void SetSampleMaxRange (float ringRadius, Vector3 ringCenter, Vector3 normal)
-        {
-
-            float radius = ringRadius;
-            sampleMaxRangeRing = new GameObject ();
-            LineRenderer lineRenderer = sampleMaxRangeRing. AddComponent<LineRenderer> ();
-            lineRenderer. useWorldSpace = false;
-            lineRenderer. startWidth = 0.15f;
-            lineRenderer. endWidth = 0.15f;
-            lineRenderer. loop = true;
-            lineRenderer. positionCount = 64 + 1;
-            lineRenderer. material = new Material (Shader. Find ("KSP/Particles/Additive"));
-            lineRenderer. startColor = Color. green;
-            lineRenderer. endColor = Color. green;
-            float angle = 0f;
-            for ( int i = 0 ; i < 64 + 1 ; i++ )
-            {
-                float x = Mathf. Sin (Mathf. Deg2Rad * angle) * radius;
-                float y = Mathf. Cos (Mathf. Deg2Rad * angle) * radius;
-                lineRenderer. SetPosition (i, new Vector3 (x, y, 0));
-                angle += 360f / 64;
-            }
-            sampleMaxRangeRing. transform. position = ringCenter;
-            sampleMaxRangeRing. transform. rotation = Quaternion. LookRotation (normal, sampleMaxRangeRing. transform. right);
-            sampleMaxRangeRing. transform. SetParent (currentWorkingRoboticArm. armParts[0].vessel.transform);
-        }
-        public float CalculateArmLength ()
-        {
-            Debug. Log ("开始计算臂长");
-            float armLength = 0;
-            List<Vector3> linkNodePos = new List<Vector3> ();
-            foreach ( Part part in currentWorkingRoboticArm.armParts )
-            {
-                if ( part. FindModuleImplementing<ModuleCASNFP_RoboticArmPart> (). ArmPartType == ArmPartType. link )
-
-                    linkNodePos. Add (part. gameObject. GetChild (part. FindModuleImplementing<ModuleRoboticServoHinge> (). servoTransformName). transform. position);
-            }
-            for ( int i = 1 ; i < linkNodePos. Count ; i++ )
-            {
-                armLength += ( linkNodePos[i] - linkNodePos[i - 1] ). magnitude;
-            }
-            Debug. Log ("臂长为" + armLength);
-            return armLength * 2;//这里默认是大小臂相等且只有两段，是不对的，以后再修改这里臂长的计算方法。
-        }
-        public float CalculatePositionTerrainHeight (out Vector3 ringCenter, out Vector3 normal)
-        {
-            Debug. Log ("开始计算基座地形高度");
-            float heightFromTerrain = -1f;
-            Part basePart = null;
-            foreach ( Part part in currentWorkingRoboticArm. armParts )
-            {
-                if ( part. FindModuleImplementing<ModuleCASNFP_RoboticArmPart> (). ArmPartType == ArmPartType. Base )
-                {
-                    basePart = part;
-                    break;
-                }
-            }
-            Vector3 basePos = basePart. gameObject. GetChild (basePart. FindModuleImplementing<ModuleRoboticServoHinge> (). baseTransformName). transform. position;
-            Vector3 calNormal = ( Vector3 )FlightGlobals. getUpAxis (FlightGlobals. getMainBody (), basePos). normalized;
-            float num = ( float )FlightGlobals. getMainBody (). Radius / 2;
-            RaycastHit[] hits = Physics. RaycastAll (basePos, -calNormal, num);
-            ringCenter = new Vector3 (0, 0, 0);
-            normal = new Vector3 (0, 0, 0);
-            foreach ( var item in hits )
-            {
-                if ( item. collider. gameObject. layer == 15 )
-                {
-
-                    RaycastHit rightHit = item;
-                    heightFromTerrain = rightHit. distance;
-                    ringCenter = rightHit. point;
-                    normal = rightHit. normal;
-                    break;
-                }
-            }
-            Debug. Log ("基座地形高度" + heightFromTerrain + "     绿环中心" + ringCenter + "   绿环法向" + normal);
-            return heightFromTerrain;
-        }
-        #endregion
         #region 生成一个用户选择窗口，当用户选择机械臂时，CurrentIndex数值变化的事件触发
         /// <summary>
         /// 创建机械臂选择窗口
@@ -338,10 +212,6 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         DialogGUILabel label;
         void CreatArmSelectionWindow (Dictionary<int, OriginalArm> roboticArmIndex)
         {
-            if ( MessageBox. Instance != null )
-            {
-                GameObject. Destroy (MessageBox. Instance);
-            }
             int index = roboticArmIndex. Count;
             label = new DialogGUILabel (flexH: true, GetLabelString, 390f, 0f)
             {
@@ -474,10 +344,9 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                         }
                     }
                 }
-
             }
             currentWorkingRoboticArm = roboticArmIndex[( int )actionPram. y];
-            IsStartingAutoCtrl = true;
+            SeparateWorkType ();
         }
         #endregion
         #region 检查机械臂部件并区分机械臂类型
@@ -488,12 +357,12 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         private Dictionary<int, OriginalArm> CheckAndDistinguishTheArm (Part[] cASNFP_RoboticArmPart)
         {
             Dictionary<int, OriginalArm> roboticArmIndex = new Dictionary<int, OriginalArm> ();//机械臂索引，键为机械臂索引，值为机械臂类型和机械臂部件数组
-            List<CheckAndDistinguishThePart> thePartsList = new List<CheckAndDistinguishThePart> ();//机械臂部件列表
+            List<OriginalArmPart> thePartsList = new List<OriginalArmPart> ();//机械臂部件列表
             // 遍历所有机械臂部件，获取机械臂类型和部件类型
             foreach ( Part part in cASNFP_RoboticArmPart )
             {
                 ModuleCASNFP_RoboticArmPart roboticArmModule = part. Modules. GetModule<ModuleCASNFP_RoboticArmPart> ();
-                CheckAndDistinguishThePart thePart = new CheckAndDistinguishThePart
+                OriginalArmPart thePart = new OriginalArmPart
                 {
                     part = part,
                     armWorkType = roboticArmModule. ArmType,
@@ -502,10 +371,10 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 thePartsList. Add (thePart);
             }
             // 定义四个列表来存储不同类型的机械臂部件
-            List<CheckAndDistinguishThePart> changEList = new List<CheckAndDistinguishThePart> ();
-            List<CheckAndDistinguishThePart> tianGongList = new List<CheckAndDistinguishThePart> ();
-            List<CheckAndDistinguishThePart> grabbingList = new List<CheckAndDistinguishThePart> ();
-            List<CheckAndDistinguishThePart> cameraList = new List<CheckAndDistinguishThePart> ();
+            List<OriginalArmPart> changEList = new List<OriginalArmPart> ();
+            List<OriginalArmPart> tianGongList = new List<OriginalArmPart> ();
+            List<OriginalArmPart> grabbingList = new List<OriginalArmPart> ();
+            List<OriginalArmPart> cameraList = new List<OriginalArmPart> ();
             //将机械臂组件按照机械臂类型进行分类
             foreach ( var item in thePartsList )
             {
@@ -597,13 +466,13 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         /// </summary>
         /// <param name="thisPartList">所有工作类型的part数组</param>
         /// <returns>返回一个字典，key是int值序号，value是originalArm结构体的机械臂Part</returns>
-        private Dictionary<int, OriginalArm> Spit_Arm (List<CheckAndDistinguishThePart> thisPartList)
+        private Dictionary<int, OriginalArm> Spit_Arm (List<OriginalArmPart> thisPartList)
         {
             ArmWorkType workType = thisPartList[0]. armWorkType;
             Dictionary<int, OriginalArm> roboticArmIndex = new Dictionary<int, OriginalArm> ();
             if ( workType == ArmWorkType. Sample_ChangE )
             {
-                IEnumerable<CheckAndDistinguishThePart> armBase = thisPartList. Where (item => item. partType == ArmPartType. Base);
+                IEnumerable<OriginalArmPart> armBase = thisPartList. Where (item => item. partType == ArmPartType. Base);
                 for ( int i = 0 ; i < armBase. Count () ; i++ )
                 {
                     List<Part> parts = new List<Part> ();
@@ -641,7 +510,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             }
             if ( workType == ArmWorkType. Walk_TianGong )
             {
-                IEnumerable<CheckAndDistinguishThePart> armBase = thisPartList. Where (item => item. partType == ArmPartType. work);
+                IEnumerable<OriginalArmPart> armBase = thisPartList. Where (item => item. partType == ArmPartType. work);
                 for ( int i = 0 ; i < armBase. Count () ; i++ )
                 {
                     List<Part> parts = new List<Part> ();

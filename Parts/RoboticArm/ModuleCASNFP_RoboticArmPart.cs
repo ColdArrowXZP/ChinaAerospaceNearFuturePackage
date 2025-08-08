@@ -6,6 +6,8 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
     public class ModuleCASNFP_RoboticArmPart: PartModule
     {
         [KSPField(isPersistant = true)]
+        public string JointName = "ArmJoint"; // 机械臂关节名称,用于机械臂关节连接
+        [KSPField(isPersistant = true)]
         public int thisPartBelongArmType = 0;// 机械臂组件类型枚举,0=基座,1=连接臂,2=工作臂,3=其他类型
         private ArmPartType armPartType;
         public ArmPartType ArmPartType

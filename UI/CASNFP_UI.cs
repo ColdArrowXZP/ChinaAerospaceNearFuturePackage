@@ -55,14 +55,14 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
             Vessel vessel = FlightGlobals. ActiveVessel?.GetVessel ();
             if ( vessel == null )
             {
-                MessageBox. Instance. ShowDialog ("错误", "当前不存在处于控制中的载具");
+                Debug.Log("错误:"+"当前不存在处于控制中的载具");
                 return;
             }
             List<Part> CASNFP_RoboticArmPartList = new List<Part> ();
             List< ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.ModuleCASNFP_RoboticArmPart> moduleCASNFP_RoboticArmParts = vessel. FindPartModulesImplementing< ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm.ModuleCASNFP_RoboticArmPart> ();
             if ( moduleCASNFP_RoboticArmParts == null || moduleCASNFP_RoboticArmParts. Count == 0 )
             {
-                MessageBox. Instance. ShowDialog ("错误", "当前载具上没有CASNFP机械臂组件！");
+                Debug. Log ("错误:" + "当前载具上没有CASNFP机械臂组件！");
                 return;
             }
             else
