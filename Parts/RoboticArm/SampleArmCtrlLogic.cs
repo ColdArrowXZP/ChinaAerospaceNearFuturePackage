@@ -21,6 +21,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         float radius;
         Vector3 ringCenter;
         Vector3 normal;
+        bool isUpdate;
         public void Awake ()
         {
             Debug. Log ("开始执行取样臂Awake方法");
@@ -34,6 +35,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         {
             Debug. Log ("开始执行取样臂Start方法");
             currentArmParts = rocAutoCtrl. currentWorkingRoboticArm. armParts;
+            isUpdate = true;
         }
         //步骤：1、获取机械臂长度，2、获取机械臂基座位置地形高度，3、计算出机械臂工作范围半径，4、设置一个绿色圆环供玩家参考取样点，5、获取鼠标点击事件，6、计算取样点位置，7、执行取样动作。
         private bool TryGetValidSamplePoint (out Vector3 clickPoint)
@@ -67,7 +69,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         public void Update ()
         {
 
-            if ( !HighLogic. LoadedSceneIsFlight )
+            if ( !HighLogic. LoadedSceneIsFlight || !isUpdate )
                 return;
             if ( currentArmParts[0]. vessel. srf_velocity. magnitude > 0.1d )
             {
@@ -84,9 +86,9 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             //这里设置一个可视化的圆环
             if ( !isTargetRingSetUp )
             {
-                if ( !isTargetRingSetUp )
+                if (SampleTargetSet ())
                 {
-                    //IsStartingAutoCtrl = false;
+                    isTargetRingSetUp = true;
                 }
             }
 
@@ -107,6 +109,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 ScreenMessages. PostScreenMessage (
                     Localizer. Format ($"取样点为{targetPoint. ToString ()},开始计算并执行取样动作，请稍候"),
                     2f, ScreenMessageStyle. UPPER_RIGHT);
+                isUpdate = false;
             }
 
         }
