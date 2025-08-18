@@ -87,10 +87,6 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             {
                 _instance = this;
             }
-            if ( CASNFP_RoboticArmPart == null )
-            {
-                CASNFP_RoboticArmPart = CASNFP_UI. Instance. CASNFP_RoboticArmPart;
-            }
         }
         public void Start ()
         {

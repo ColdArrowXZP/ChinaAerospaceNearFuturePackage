@@ -25,10 +25,11 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         public void Awake ()
         {
             Debug. Log ("开始执行取样臂Awake方法");
-            rocAutoCtrl = CASNFP_SetRocAutoCtrl.Instance;
+            rocAutoCtrl = gameObject.GetComponent<CASNFP_SetRocAutoCtrl>();
             if ( rocAutoCtrl == null )
             {
                 Debug. Log ("程序错误,没有找到嫦娥机械臂控制程序");
+                Destroy(this);
             }
         }
         public void Start ()
