@@ -9,11 +9,11 @@ using UnityEngine;
 
 namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
 {
-    public class SampleArmCtrlLogic:MonoBehaviour
+     public class SampleArmCtrlLogic:MonoBehaviour
     {
         CASNFP_SetRocAutoCtrl rocAutoCtrl;
-        Part[] currentArmParts;
-        bool isTargetRingSetUp;
+        List<ArmPartJointInfo> currentArmParts;
+        bool isTargetRingSetUp = false,isCalCom = false, isGetTargetPoint = false;
         GameObject sampleMaxRangeRing;
         Vector3 targetPoint;
         float armLength;
@@ -21,7 +21,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         float radius;
         Vector3 ringCenter;
         Vector3 normal;
-        bool isUpdate;
         public void Awake ()
         {
             Debug. Log ("开始执行取样臂Awake方法");
@@ -34,10 +33,16 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         }
         public void Start ()
         {
-            Debug. Log ("开始执行取样臂Start方法");
-            currentArmParts = rocAutoCtrl. currentWorkingRoboticArm. armParts;
-            isUpdate = true;
+            currentArmParts = rocAutoCtrl. currentWorkingRoboticArm;
+            for ( int i = 0 ; i < currentArmParts. Count ; i++ )
+            {
+                if ( currentArmParts[i]. partType == ArmPartType. link )
+                {
+                    armLength += currentArmParts[i]. armLength;
+                }
+            }
         }
+
         //步骤：1、获取机械臂长度，2、获取机械臂基座位置地形高度，3、计算出机械臂工作范围半径，4、设置一个绿色圆环供玩家参考取样点，5、获取鼠标点击事件，6、计算取样点位置，7、执行取样动作。
         private bool TryGetValidSamplePoint (out Vector3 clickPoint)
         {
@@ -67,11 +72,48 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             clickPoint = hit. point;
             return true;
         }
+        int i = 0;
         public void Update ()
         {
 
-            if ( !HighLogic. LoadedSceneIsFlight || !isUpdate )
+            if ( !HighLogic. LoadedSceneIsFlight || isGetTargetPoint )
+            {
+                if ( !isCalCom )
+                {
+                    //开始计算机械臂逆解
+                    Debug. Log ("开始计算机械臂逆解");
+                    RoboticArmIK roboticArmIK = new RoboticArmIK (currentArmParts, targetPoint);
+                    if ( roboticArmIK. SolveIK () )
+                    {
+                        List<float> targetAngles = roboticArmIK. jointTargetAngle;
+                        for( int i = 0 ; i < currentArmParts. Count ; i++ )
+                        {
+                            Debug.Log(i +":"+targetAngles[i]);
+                            currentArmParts[i].servoHinge. targetAngle = targetAngles[i];
+                        }
+                        ScreenMessages. PostScreenMessage (
+                            Localizer. Format ($"机械臂逆解成功"),
+                            2f, ScreenMessageStyle. UPPER_RIGHT);
+                        isCalCom = true;
+                    }
+                    else
+                    {
+                        ScreenMessages. PostScreenMessage (
+                            Localizer. Format ($"机械臂逆解计算失败，请重新选择取样点"),
+                            2f, ScreenMessageStyle. UPPER_RIGHT);
+                        isGetTargetPoint = false;
+                        isCalCom = false;
+                        if ( isTargetRingSetUp )
+                        {
+                            Destroy (sampleMaxRangeRing);
+                            isTargetRingSetUp = false;
+                        }
+                        return;
+                    }
+                }
                 return;
+            }
+                
             if ( currentArmParts[0]. vessel. srf_velocity. magnitude > 0.1d )
             {
                 ScreenMessages. PostScreenMessage (
@@ -85,12 +127,18 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 return;
             }
             //这里设置一个可视化的圆环
-            if ( !isTargetRingSetUp )
+            if ( !isTargetRingSetUp && i<=0 )
             {
-                if (SampleTargetSet ())
+                if ( SampleTargetSet () )
                 {
                     isTargetRingSetUp = true;
                 }
+                else
+                {
+                    Debug. Log ("圆环设置失败，请调整机械臂设置");
+                    i++;
+                }
+                return;
             }
 
             if ( !Input. GetMouseButtonDown (0) )
@@ -107,10 +155,10 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             else
             {
                 targetPoint = clickPoint;
+                isGetTargetPoint = true;
                 ScreenMessages. PostScreenMessage (
-                    Localizer. Format ($"取样点为{targetPoint. ToString ()},开始计算并执行取样动作，请稍候"),
+                    Localizer. Format ($"开始计算并执行取样动作，请稍候"),
                     2f, ScreenMessageStyle. UPPER_RIGHT);
-                isUpdate = false;
             }
 
         }
@@ -119,20 +167,18 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             //初始化所选择的机械臂的各项参数
             //开始计算取样范围，设置一个绿色圆环供玩家参考取样点
             Debug. Log ("开始设置绿环");
-            armLength = CalculateArmLength ();//计算大臂长度
             positionTerrainHeight = CalculatePositionTerrainHeight (out ringCenter, out normal);
             if ( positionTerrainHeight < 0 )
             {
                 Debug. Log ("错误:" + "飞船所处位置没有检测到地面实体");
                 return false;
             }
-            if ( positionTerrainHeight >= armLength / 2 )//这里的比较也有问题，暂时不管。
+            if ( positionTerrainHeight >= armLength/2)
             {
                 Debug. Log ("错误:" + "机械臂距离地面过高，超出最大工作范围，无法设置取样点");
                 return false;
             }
             radius = ( float )Math. Sqrt (armLength * armLength - positionTerrainHeight * positionTerrainHeight);
-            Debug. Log ("计算得出绿环半径为：" + radius);
             SetSampleMaxRange (radius, ringCenter, normal);
             return true;
         }
@@ -162,38 +208,22 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             sampleMaxRangeRing. transform. rotation = Quaternion. LookRotation (normal, sampleMaxRangeRing. transform. right);
             sampleMaxRangeRing. transform. SetParent (currentArmParts[0]. vessel. transform);
         }
-        public float CalculateArmLength ()
-        {
-            Debug. Log ("开始计算臂长");
-            float armLength = 0;
-            List<Vector3> linkNodePos = new List<Vector3> ();
-            foreach ( Part part in currentArmParts)
-            {
-                if ( part. FindModuleImplementing<ModuleCASNFP_RoboticArmPart> (). ArmPartType == ArmPartType. link )
-
-                    linkNodePos. Add (part. gameObject. GetChild (part. FindModuleImplementing<ModuleRoboticServoHinge> (). servoTransformName). transform. position);
-            }
-            for ( int i = 1 ; i < linkNodePos. Count ; i++ )
-            {
-                armLength += ( linkNodePos[i] - linkNodePos[i - 1] ). magnitude;
-            }
-            Debug. Log ("臂长为" + armLength);
-            return armLength * 2;//这里默认是大小臂相等且只有两段，是不对的，以后再修改这里臂长的计算方法。
-        }
+        
         public float CalculatePositionTerrainHeight (out Vector3 ringCenter, out Vector3 normal)
         {
             Debug. Log ("开始计算基座地形高度");
             float heightFromTerrain = -1f;
-            Part basePart = null;
-            foreach ( Part part in currentArmParts )
+            ArmPartJointInfo baseJoint = currentArmParts[0];
+            foreach ( var item in currentArmParts )
             {
-                if ( part. FindModuleImplementing<ModuleCASNFP_RoboticArmPart> (). ArmPartType == ArmPartType. Base )
+                if ( item.partType == ArmPartType . Base )
                 {
-                    basePart = part;
+                    baseJoint = item;
                     break;
                 }
             }
-            Vector3 basePos = basePart. gameObject. GetChild (basePart. FindModuleImplementing<ModuleRoboticServoHinge> (). baseTransformName). transform. position;
+            Vector3 basePos = baseJoint.part.gameObject.transform.position;
+            Debug. Log ($"底座坐标：{basePos.ToString()}");
             Vector3 calNormal = ( Vector3 )FlightGlobals. getUpAxis (FlightGlobals. getMainBody (), basePos). normalized;
             float num = ( float )FlightGlobals. getMainBody (). Radius / 2;
             RaycastHit[] hits = Physics. RaycastAll (basePos, -calNormal, num);
