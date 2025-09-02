@@ -17,7 +17,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         ConfigNode thisSetting = SettingLoader. CASNFP_GlobalSettings;
         Vector2 actionPram;
         public List<ArmPartJointInfo>[] CASNFP_RoboticArmPart;
-        private Action<Vector2> onValueChanged;
+        private event Action<Vector2> onValueChanged;
         public List<ArmPartJointInfo> currentWorkingRoboticArm;
         /// <summary>
         /// 所有的属性
@@ -35,61 +35,21 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                     actionPram.x = currentIndex;
                     actionPram.y = value;
                     currentIndex = value;
-                    OnValueChanged (actionPram);
+                    onValueChanged?.Invoke (actionPram);
                 }
-
             }
         }
-
-        /// <summary>
-        /// 构造函数
-        /// </summary>
-        //实现控制器UI为单例
-        private static CASNFP_SetRocAutoCtrl _instance;
-        private CASNFP_SetRocAutoCtrl (){}
-        public static CASNFP_SetRocAutoCtrl Instance
-        {
-            get
-            {
-                if ( _instance == null )
-                {
-                    _instance = FindObjectOfType<CASNFP_SetRocAutoCtrl> ();
-                    if ( _instance == null )
-                    {
-                        GameObject go = new GameObject (typeof (CASNFP_SetRocAutoCtrl). Name);
-                        _instance = go. AddComponent<CASNFP_SetRocAutoCtrl> ();
-                    }
-                    else
-                    {
-                        _instance. Start ();
-                    }
-                }
-                else
-                {
-                    _instance. Start ();
-                }
-                return _instance;
-            }
-            
-        }
-
-
         /// <summary>
         /// unity事件
         /// </summary>
         /// <summary>
         /// 机械臂自动控制程序，先区分有几个机械臂，然后让玩家选择一个机械臂进行控制，判断机械臂类型，选择目标位置和目标姿态，控制机械臂到达目标位置和姿态，按计划开始工作。
         /// </summary>
-        public void Awake ()
-        {
-            if ( _instance == null )
-            {
-                _instance = this;
-            }
-        }
+       
         public void Start ()
         {
             Debug. Log ("开始执行自动控制程序");
+            CASNFP_RoboticArmPart = CASNFP_UI.Instance.CASNFP_RoboticArmPart;
             if ( thisSetting != null )
             {
                 if ( thisSetting. HasValue ("currentIndex") )
@@ -101,7 +61,6 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             {
                 onValueChanged += new Action<Vector2> (OnValueChanged);
             }
-            
             if ( CASNFP_RoboticArmPart.Length > 1 )
             {
                 CreatArmSelectionWindow (CASNFP_RoboticArmPart);
@@ -122,8 +81,8 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         public void OnDestroy ()
         {
             OnSave (thisSetting);
-            onValueChanged -= new Action<Vector2> (OnValueChanged);
-            if( dialog1 != null )
+            onValueChanged = null;
+            if ( dialog1 != null )
             {
                 dialog1. Dismiss ();
                 PopupDialog. Destroy (dialog1);
@@ -144,13 +103,8 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             {
                 Destroy(cameraArmCtrlLogic);
             }
-            //如果是单例模式，则销毁实例
-            if ( Instance != null )
-            {
-                _instance = null;
-            }
-            
         }
+
         SampleArmCtrlLogic sampleArmCtrlLogic;
         WorkArmCtrlLogic workArmCtrlLogic;
         GrabbingArmCtrlLogic grabbingArmCtrlLogic;
@@ -158,42 +112,21 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         PopupDialog dialog1;
         private void SeparateWorkType ()
         {
-
+            Debug. Log ("进入机械臂工作类型区分逻辑" + $"当前机械臂是{CASNFP_RoboticArmPart.IndexOf(currentWorkingRoboticArm)+1}号");
             //启动各工作臂目标设置逻辑，目前只写取样臂逻辑。
             switch ( currentWorkingRoboticArm[0].armWorkType)
             {
                 case ArmWorkType. Sample_ChangE:
-                    if ( !gameObject. TryGetComponent<SampleArmCtrlLogic> (out sampleArmCtrlLogic) )
-                    {
-                        sampleArmCtrlLogic = gameObject. AddComponent<SampleArmCtrlLogic> ();
-                    }
-                    else
-                        sampleArmCtrlLogic. Start();
+                    sampleArmCtrlLogic = gameObject. AddComponent<SampleArmCtrlLogic> ();
                     break;
                 case ArmWorkType. Walk_TianGong:
-                    if ( !gameObject. TryGetComponent<WorkArmCtrlLogic> (out workArmCtrlLogic) )
-                    {
-                        workArmCtrlLogic = gameObject. AddComponent<WorkArmCtrlLogic> ();
-                    }
-                    else
-                        workArmCtrlLogic. Start ();
+                    workArmCtrlLogic = gameObject. AddComponent<WorkArmCtrlLogic> ();
                     break;
                 case ArmWorkType. Grabbing:
-                    if ( !gameObject. TryGetComponent<GrabbingArmCtrlLogic> (out grabbingArmCtrlLogic) )
-                    {
-                        grabbingArmCtrlLogic = gameObject. AddComponent<GrabbingArmCtrlLogic> ();
-                    }
-                    else
-                        grabbingArmCtrlLogic. Start ();
+                    grabbingArmCtrlLogic = gameObject. AddComponent<GrabbingArmCtrlLogic> ();
                     break;
                 case ArmWorkType. Camera:
-                    if ( !gameObject. TryGetComponent<CameraArmCtrlLogic> (out cameraArmCtrlLogic) )
-                    {
-                        cameraArmCtrlLogic = gameObject. AddComponent<CameraArmCtrlLogic> ();
-
-                    }
-                    else
-                        cameraArmCtrlLogic. Start ();
+                    cameraArmCtrlLogic = gameObject. AddComponent<CameraArmCtrlLogic> ();
                     break;
             }
         }

@@ -47,10 +47,20 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
         protected virtual void StartArmAutoCtrl()
         {
             OnFalse ();
-            // 启动机械臂自动控制程序
-            StartingArmAutoCtrl ();
+            if ( CASNFP_RoboticArmPart == null )
+            {
+                SetArmJointInfos ();
+                StartAutoCtrl ();
+            }
+            else
+                StartAutoCtrl ();
+            if ( _armAutoCtrl == null )
+            {
+                Debug. LogError ("错误："+"机械臂识别过程中发生错误，自动控制程序终止");
+            }
+
         }
-        protected virtual void StartingArmAutoCtrl ()
+        protected virtual void SetArmJointInfos ()
         {
             Vessel vessel = FlightGlobals. ActiveVessel?.GetVessel ();
             if ( vessel == null )
@@ -75,7 +85,7 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
                     item. ArmPartJointInfo. rotationSpeed = item. ArmPartJointInfo. servoHinge. CurrentVelocityLimit;
                     item. ArmPartJointInfo. rotationAxis = item. ArmPartJointInfo. servoHinge. GetMainAxis ();
                     item. ArmPartJointInfo. currentAngle = item. ArmPartJointInfo. servoHinge. currentAngle;
-                    item. ArmPartJointInfo. targetAngle = item. ArmPartJointInfo. servoHinge. targetAngle;
+                    item. ArmPartJointInfo. instanceAngle = item. ArmPartJointInfo. servoHinge.currentAngle;
                     item. ArmPartJointInfo. armLength = item.armPartLength;
                     if(item.ArmPartJointInfo.partType == ArmPartType.work )
                         item. ArmPartJointInfo. workPosTransform = part. gameObject. GetChild (item.workPosName). transform;
@@ -188,13 +198,24 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
                     }
                     Debug. Log (armInfo);
                 }
+                
                 CASNFP_RoboticArmPart = validArmGroups. ToArray ();
-
-                //启动机械臂自动控制的UI控制窗口
-                _armAutoCtrl = CASNFP_SetRocAutoCtrl.Instance;
-                _armAutoCtrl. CASNFP_RoboticArmPart = CASNFP_RoboticArmPart;
             }
         }
+        //启动机械臂自动控制的UI控制窗口
+        private void StartAutoCtrl ()
+        {
+            if ( CASNFP_RoboticArmPart. Length != 0 )
+            {
+                if ( !gameObject. TryGetComponent<CASNFP_SetRocAutoCtrl> (out _armAutoCtrl) )
+                {
+                    _armAutoCtrl = gameObject. AddComponent<CASNFP_SetRocAutoCtrl> ();
+                }
+                else
+                    _armAutoCtrl. Start ();
+            }else Debug. LogError ("错误："+"机械臂识别过程中发生错误，自动控制程序终止");
+        }
+
         protected override void OnDestroy ()
         {
             base. OnDestroy ();

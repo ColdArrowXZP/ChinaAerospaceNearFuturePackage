@@ -39,7 +39,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         public float rotationSpeed;
         public Vector3 rotationAxis;
         public float currentAngle;
-        public float targetAngle;
+        public float instanceAngle;
         public Transform workPosTransform;
     }
 }
