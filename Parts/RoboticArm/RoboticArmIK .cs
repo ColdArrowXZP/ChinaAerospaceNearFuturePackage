@@ -30,9 +30,10 @@ public class RoboticArmIK
 
         //首先计算底座旋转角度，使得机械臂朝向目标位置。获得基座位置、旋转轴、当前角度和目标位置的方向向量，通过向量投影计算旋转角度。
         Transform baseTransform = armPartInfos[0]. jointTransform;
-        Debug.Log("Base Position: " + baseTransform.position.ToString());
-        Debug.Log("Base Rotation: " + baseTransform.rotation.eulerAngles.ToString());
-        Vector3 localTargetPos = baseTransform.InverseTransformPoint(targetPosition);
+        Debug.Log("Base Position: " + baseTransform.localPosition.ToString());
+        Debug.Log("Base Rotation: " + baseTransform.localRotation.eulerAngles.ToString());
+        Debug.Log("Base scale: " + baseTransform.localScale.ToString());
+        Vector3 localTargetPos = baseTransform.InverseTransformPoint(targetPosition)-baseTransform.localPosition;
         float aHu = Mathf. Atan2 (localTargetPos. y, localTargetPos. x);
         float thetaDeg = aHu * RadToDeg;
         Debug.Log("ThetaDeg: " + thetaDeg);

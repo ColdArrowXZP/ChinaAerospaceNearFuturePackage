@@ -58,6 +58,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     armLength += currentArmParts[i]. armLength;
                 }
             }
+            Debug.Log("当前机械臂计算臂长为："+armLength);
         }
 
         private void IsMoving (bool obj)
@@ -77,7 +78,8 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 for ( int i = 0 ; i < currentArmParts. Count ; i++ )
                 {
                     //机械臂停止
-                    currentArmParts[i]. currentAngle = currentArmParts[i]. servoHinge. targetAngle = currentArmParts[i]. servoHinge.currentAngle;
+                    currentArmParts[i]. servoHinge. targetAngle = currentArmParts[i]. servoHinge.currentAngle;
+                    currentArmParts[i]. currentAngle = currentArmParts[i]. servoHinge. currentAngle;
                 }
             }
         }
@@ -96,6 +98,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         {
             clickPoint = Vector3. zero;
             var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
+
 
             if ( !Physics. Raycast (ray, out RaycastHit hit) || hit. collider == null )
                 return false;
@@ -255,7 +258,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     break;
                 }
             }
-            Vector3 basePos = baseJoint.part.gameObject.transform.position;
+            Vector3 basePos = baseJoint.jointTransform.position;
             Vector3 calNormal = ( Vector3 )FlightGlobals. getUpAxis (FlightGlobals. getMainBody (), basePos). normalized;
             float num = ( float )FlightGlobals. getMainBody (). Radius / 2;
             RaycastHit[] hits = Physics. RaycastAll (basePos, -calNormal, num);
