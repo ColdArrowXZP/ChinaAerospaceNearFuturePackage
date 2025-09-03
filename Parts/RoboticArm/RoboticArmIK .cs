@@ -29,33 +29,19 @@ public class RoboticArmIK
         }
 
         //首先计算底座旋转角度，使得机械臂朝向目标位置。获得基座位置、旋转轴、当前角度和目标位置的方向向量，通过向量投影计算旋转角度。
-        Transform baseTransform = armPartInfos[0]. jointTransform;
-        Debug.Log("Base Position: " + baseTransform.position.ToString());
-        Debug.Log("Base Rotation: " + baseTransform.rotation.eulerAngles.ToString());
-        Vector3 localTargetPos = baseTransform.InverseTransformPoint(targetPosition);
+        Debug. Log ("初始角度"+armPartInfos[0]. jointTransform.localRotation.eulerAngles.ToString());
+        Debug. Log ("初始位置" + armPartInfos[0]. jointTransform.localPosition. ToString ());
+        Debug. Log ("初始位置Pos" + armPartInfos[0]. jointTransform. position. ToString ());
+        Debug. Log ("初始角度Rot" + armPartInfos[0]. jointTransform. rotation. eulerAngles. ToString ());
+        Debug. Log ("Part位置" + armPartInfos[0].part.transform.position. ToString ());
+        Debug. Log ("Part角度"+ armPartInfos[0].part.transform.rotation.eulerAngles.ToString());
+        Vector3 localTargetPos = armPartInfos[0]. jointTransform.InverseTransformPoint(targetPosition);
+        localTargetPos -= armPartInfos[0]. jointTransform. localPosition;
+        Debug. Log ("localTargetPos:" + localTargetPos.ToString());
         float aHu = Mathf. Atan2 (localTargetPos. y, localTargetPos. x);
         float thetaDeg = aHu * RadToDeg;
-        Debug.Log("ThetaDeg: " + thetaDeg);
-        float baseRotAngle = 0f;
-        if ( thetaDeg >= 0 )
-        {
-            baseRotAngle = thetaDeg;
-        }
-        else
-        {
-            if ( thetaDeg >= -90 )
-            {
-                baseRotAngle = thetaDeg;
-            }
-            else
-            {
-                baseRotAngle = 360+thetaDeg;
-            }
-        }
-
-        Debug. Log (localTargetPos. ToString ());
-        Debug. Log (baseRotAngle);
-        jointTargetAngle. Add (baseRotAngle);
+        Debug. Log ("thetaDeg:"+thetaDeg);
+        jointTargetAngle. Add (thetaDeg);
         for(int i =1 ; i < armPartInfos. Count; i++)
         {
             jointTargetAngle. Add (armPartInfos[i]. currentAngle);

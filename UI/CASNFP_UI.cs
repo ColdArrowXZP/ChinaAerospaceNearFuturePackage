@@ -198,7 +198,6 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
                     }
                     Debug. Log (armInfo);
                 }
-                
                 CASNFP_RoboticArmPart = validArmGroups. ToArray ();
             }
         }

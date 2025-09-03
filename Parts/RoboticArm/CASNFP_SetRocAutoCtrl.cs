@@ -114,6 +114,22 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         {
             Debug. Log ("进入机械臂工作类型区分逻辑" + $"当前机械臂是{CASNFP_RoboticArmPart.IndexOf(currentWorkingRoboticArm)+1}号");
             //启动各工作臂目标设置逻辑，目前只写取样臂逻辑。
+            if( sampleArmCtrlLogic != null)
+            {
+                Destroy(sampleArmCtrlLogic);
+            }
+            if( workArmCtrlLogic != null)
+            {
+                Destroy(workArmCtrlLogic);
+            }
+            if( grabbingArmCtrlLogic != null)
+            {
+                Destroy(grabbingArmCtrlLogic);
+            }
+            if( cameraArmCtrlLogic != null)
+            {
+                Destroy(cameraArmCtrlLogic);
+            }
             switch ( currentWorkingRoboticArm[0].armWorkType)
             {
                 case ArmWorkType. Sample_ChangE:

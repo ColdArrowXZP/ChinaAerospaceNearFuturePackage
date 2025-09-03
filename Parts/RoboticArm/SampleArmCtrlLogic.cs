@@ -94,31 +94,32 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         //步骤：1、获取机械臂长度，2、获取机械臂基座位置地形高度，3、计算出机械臂工作范围半径，4、设置一个绿色圆环供玩家参考取样点，5、获取鼠标点击事件，6、计算取样点位置，7、执行取样动作。
         private bool TryGetValidSamplePoint (out Vector3 clickPoint)
         {
-            clickPoint = Vector3. zero;
+            clickPoint = Vector3.zero;
             var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
-
-            if ( !Physics. Raycast (ray, out RaycastHit hit) || hit. collider == null )
-                return false;
-
-            if ( hit. collider. gameObject. layer != 15 && hit. collider. gameObject. layer != 10 )
+            if ( Physics. Raycast (ray, out RaycastHit terrainHit, Mathf. Infinity) )
             {
-                ScreenMessages. PostScreenMessage (
-                    Localizer. Format ($"选择取样点为{hit. collider. gameObject. name}，第{hit. collider. gameObject. layer}层，无法取样，请选择地面取样点"),
-                    2f, ScreenMessageStyle. UPPER_RIGHT);
-                return false;
-            }
-            else
-            {
-                if ( Vector3. Distance (hit. point, ringCenter) > radius )
+                int num = terrainHit. collider. gameObject. layer;
+                if ( num != 10 && num !=15)
                 {
                     ScreenMessages. PostScreenMessage (
-                        Localizer. Format ($"超出机械臂最大工作范围，请在圆环范围内取点"),
+                        Localizer. Format ($"选择的不是地面点无法取样，请在原地面选点"),
                         2f, ScreenMessageStyle. UPPER_RIGHT);
                     return false;
                 }
+                clickPoint = terrainHit. point;
+                if ( Vector3. Distance (clickPoint, ringCenter) > radius )
+                {
+                    ScreenMessages. PostScreenMessage (
+                        Localizer. Format ($"取样点超出机械臂最大工作范围"),
+                        2f, ScreenMessageStyle. UPPER_RIGHT);
+                    return false;
+                }
+                return true;
             }
-            clickPoint = hit. point;
-            return true;
+            else
+            {
+                return false;
+            }
         }
         public void Update ()
         {
@@ -132,7 +133,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     if ( roboticArmIK. SolveIK () )
                     {
                         ScreenMessages. PostScreenMessage (
-                            Localizer. Format ($"机械臂逆解成功，开始执行动作"),
+                            Localizer. Format ($"开始执行动作"),
                             2f, ScreenMessageStyle. UPPER_RIGHT);
                         targetAngles = roboticArmIK. jointTargetAngle;
                         IsCalCom = true;
@@ -208,12 +209,13 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 Debug. Log ("错误:" + "飞船所处位置没有检测到地面实体");
                 return false;
             }
-            if ( positionTerrainHeight >= armLength/2)
+            float C = armLength * armLength - positionTerrainHeight * positionTerrainHeight;
+            if( C <= 0 )
             {
-                Debug. Log ("错误:" + "机械臂距离地面过高，超出最大工作范围，无法设置取样点");
+                Debug. Log ("错误:" + "机械臂距离地面过高，超出机械臂总长度，无法设置取样点");
                 return false;
             }
-            radius = ( float )Math. Sqrt (armLength * armLength - positionTerrainHeight * positionTerrainHeight);
+            radius = Mathf. Sqrt (C);
             SetSampleMaxRange (radius, ringCenter, normal);
             return true;
         }
@@ -256,25 +258,14 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 }
             }
             Vector3 basePos = baseJoint.part.gameObject.transform.position;
-            Vector3 calNormal = ( Vector3 )FlightGlobals. getUpAxis (FlightGlobals. getMainBody (), basePos). normalized;
+            Vector3d calNormal = FlightGlobals. getUpAxis (FlightGlobals. getMainBody (), basePos). normalized;
             float num = ( float )FlightGlobals. getMainBody (). Radius / 2;
-            RaycastHit[] hits = Physics. RaycastAll (basePos, -calNormal, num);
-            RaycastHit rightHit = new RaycastHit ();
-            bool hasHit = false;
-            foreach ( var item in hits )
+            if(Physics.Raycast(basePos,-calNormal,out RaycastHit hit,num, (1 << 15)|( 1<<10)) )
             {
-                if ( item. collider. gameObject. layer == 15 )
-                {
-                    hasHit = true;
-                    rightHit = item;
-                    break;
-                }
-            }
-            if ( hasHit )
-            {
-                heightFromTerrain = rightHit. distance;
-                ringCenter = rightHit. point;
-                normal = rightHit. normal;
+                heightFromTerrain = hit. distance;
+                ringCenter = hit. point;
+                normal = hit. normal;
+                return heightFromTerrain;
             }
             else
             {
@@ -282,7 +273,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 normal = Vector3. zero;
                 return -1f;
             }
-            return heightFromTerrain;
         }
     }
 }
