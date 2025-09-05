@@ -1,4 +1,5 @@
-﻿using Expansions. Serenity;
+﻿using EdyCommonTools;
+using Expansions. Serenity;
 using KSP. Localization;
 using System;
 using System. Collections. Generic;
@@ -58,6 +59,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     armLength += currentArmParts[i]. armLength;
                 }
             }
+            Debug.Log("当前机械臂计算臂长为："+armLength);
         }
 
         private void IsMoving (bool obj)
@@ -77,7 +79,8 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 for ( int i = 0 ; i < currentArmParts. Count ; i++ )
                 {
                     //机械臂停止
-                    currentArmParts[i]. currentAngle = currentArmParts[i]. servoHinge. targetAngle = currentArmParts[i]. servoHinge.currentAngle;
+                    currentArmParts[i]. servoHinge. targetAngle = currentArmParts[i]. servoHinge.currentAngle;
+                    currentArmParts[i]. currentAngle = currentArmParts[i]. servoHinge. currentAngle;
                 }
             }
         }
@@ -121,15 +124,25 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 return false;
             }
         }
+        RoboticArmIK roboticArmIK;
         public void Update ()
         {
 
             if ( !HighLogic. LoadedSceneIsFlight || isGetTargetPoint )
             {
+                //SetLine();
                 if ( !IsCalCom )
                 {
                     //开始计算机械臂逆解
-                    RoboticArmIK roboticArmIK = new RoboticArmIK (currentArmParts, targetPoint,armLength);
+                    targetAngles. Clear ();
+                    if (roboticArmIK == null)
+                    {
+                        roboticArmIK = new RoboticArmIK (currentArmParts, targetPoint,armLength);
+                    }else
+                    {
+                        roboticArmIK.targetPosition = targetPoint;
+                    }
+
                     if ( roboticArmIK. SolveIK () )
                     {
                         ScreenMessages. PostScreenMessage (
@@ -244,7 +257,53 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             sampleMaxRangeRing. transform. rotation = Quaternion. LookRotation (normal, sampleMaxRangeRing. transform. right);
             sampleMaxRangeRing. transform. SetParent (currentArmParts[0]. vessel. transform);
         }
-        
+
+        public void SetLine() 
+        {
+            LineRenderer lineRenderer = currentArmParts[0].jointTransform.gameObject.AddComponent<LineRenderer>();
+            lineRenderer.positionCount = 8; // XYZ轴各需要2个点
+            lineRenderer.useWorldSpace = false;
+            lineRenderer.startWidth = 0.1f;
+            lineRenderer.endWidth = 0.1f;
+            lineRenderer.loop = false;
+            lineRenderer.material = new Material(Shader.Find("KSP/Particles/Additive"));
+
+            // X轴（红）
+            lineRenderer.SetPosition(0, Vector3.zero);
+            lineRenderer.SetPosition(1, Vector3.right);
+
+            // Y轴（绿） 
+            lineRenderer.SetPosition(2, Vector3.zero);
+            lineRenderer.SetPosition(3, Vector3.up );
+
+            // Z轴（蓝）
+            lineRenderer.SetPosition(4, Vector3.zero);
+            lineRenderer.SetPosition(5, Vector3.forward );
+
+            // 指向目标点的线（黄色）
+            lineRenderer.SetPosition(6, Vector3.zero);
+            lineRenderer.SetPosition(7, currentArmParts[0].jointTransform.InverseTransformPoint(targetPoint));
+
+            // 颜色渐变控制
+            Gradient gradient = new Gradient();
+            gradient.SetKeys(
+                new GradientColorKey[] {
+                new GradientColorKey(Color.red, 0f),
+                new GradientColorKey(Color.red, 0.25f),
+                new GradientColorKey(Color.green, 0.26f),
+                new GradientColorKey(Color.green, 0.5f),
+                new GradientColorKey(Color.blue, 0.51f),
+                new GradientColorKey(Color.blue, 0.75f),
+                new GradientColorKey(Color.yellow, 0.76f),
+                new GradientColorKey(Color.yellow, 1f)
+                },
+                new GradientAlphaKey[] {
+                new GradientAlphaKey(1f, 0f),
+                new GradientAlphaKey(1f, 1f)
+                }
+            );
+            lineRenderer.colorGradient = gradient;
+        }
         public float CalculatePositionTerrainHeight (out Vector3 ringCenter, out Vector3 normal)
         {
             float heightFromTerrain = -1f;

@@ -85,7 +85,7 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
                     item. ArmPartJointInfo. rotationSpeed = item. ArmPartJointInfo. servoHinge. CurrentVelocityLimit;
                     item. ArmPartJointInfo. rotationAxis = item. ArmPartJointInfo. servoHinge. GetMainAxis ();
                     item. ArmPartJointInfo. currentAngle = item. ArmPartJointInfo. servoHinge. currentAngle;
-                    item. ArmPartJointInfo. instanceAngle = item. ArmPartJointInfo. servoHinge.currentAngle;
+                    item. ArmPartJointInfo. instanceRotation = item. ArmPartJointInfo.servoHinge.launchPosition;
                     item. ArmPartJointInfo. armLength = item.armPartLength;
                     if(item.ArmPartJointInfo.partType == ArmPartType.work )
                         item. ArmPartJointInfo. workPosTransform = part. gameObject. GetChild (item.workPosName). transform;

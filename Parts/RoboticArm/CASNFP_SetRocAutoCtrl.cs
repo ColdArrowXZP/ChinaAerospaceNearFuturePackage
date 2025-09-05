@@ -288,6 +288,11 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 }
             }
             currentWorkingRoboticArm = CASNFP_RoboticArmPart[( int )actionPram. y];
+            foreach (var item in currentWorkingRoboticArm)
+            {
+                Part p = item.part;
+                p.Highlight(false);
+            }
             SeparateWorkType ();
         }
         #endregion
