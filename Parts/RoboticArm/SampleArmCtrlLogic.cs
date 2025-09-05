@@ -58,6 +58,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     armLength += currentArmParts[i]. armLength;
                 }
             }
+            Debug.Log("当前机械臂计算臂长为："+armLength);
         }
 
         private void IsMoving (bool obj)
@@ -77,7 +78,8 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 for ( int i = 0 ; i < currentArmParts. Count ; i++ )
                 {
                     //机械臂停止
-                    currentArmParts[i]. currentAngle = currentArmParts[i]. servoHinge. targetAngle = currentArmParts[i]. servoHinge.currentAngle;
+                    currentArmParts[i]. servoHinge. targetAngle = currentArmParts[i]. servoHinge.currentAngle;
+                    currentArmParts[i]. currentAngle = currentArmParts[i]. servoHinge. currentAngle;
                 }
             }
         }
