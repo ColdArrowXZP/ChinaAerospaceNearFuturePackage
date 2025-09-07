@@ -50,7 +50,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             currentArmParts = rocAutoCtrl. currentWorkingRoboticArm;
             if(isMoving == null)
             {
-                isMoving += new Action<bool> (IsMoving);
+                isMoving += new Action<bool> (Moving);
             }
             for ( int i = 0 ; i < currentArmParts. Count ; i++ )
             {
@@ -62,7 +62,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             Debug.Log("当前机械臂计算臂长为："+armLength);
         }
 
-        private void IsMoving (bool obj)
+        private void Moving (bool obj)
         {
             if ( obj )
             {
@@ -93,6 +93,15 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 Destroy (sampleMaxRangeRing);
                 isTargetRingSetUp = false;
             }
+            if ( sphere != null )
+            {
+                Destroy (sphere);
+            }
+            if( roboticArmIK != null )
+            {
+                roboticArmIK = null;
+            }
+            Debug. Log ("销毁SampleArmCtrlLogic");
         }
         //步骤：1、获取机械臂长度，2、获取机械臂基座位置地形高度，3、计算出机械臂工作范围半径，4、设置一个绿色圆环供玩家参考取样点，5、获取鼠标点击事件，6、计算取样点位置，7、执行取样动作。
         private bool TryGetValidSamplePoint (out Vector3 clickPoint)
@@ -130,7 +139,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
 
             if ( !HighLogic. LoadedSceneIsFlight || isGetTargetPoint )
             {
-                //SetLine();
                 if ( !IsCalCom )
                 {
                     //开始计算机械臂逆解
@@ -158,7 +166,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                             2f, ScreenMessageStyle. UPPER_RIGHT);
                         isGetTargetPoint = false;
                     }
-                    roboticArmIK = null;
                 }
                 return;
             }
@@ -204,6 +211,8 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             else
             {
                 targetPoint = clickPoint;
+                //在targetPoint位置生成一个黄色球体，表示取样点
+                SetTargetSp (targetPoint);
                 isGetTargetPoint = true;
                 if ( IsCalCom )IsCalCom = false;
                 ScreenMessages. PostScreenMessage (
@@ -211,6 +220,25 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     2f, ScreenMessageStyle. UPPER_RIGHT);
             }
         }
+        GameObject sphere;
+        private void SetTargetSp (Vector3 targetPoint)
+        {
+            if ( sphere == null )
+            {
+                sphere = GameObject. CreatePrimitive (PrimitiveType. Sphere);
+                Destroy (sphere. GetComponent<SphereCollider> ());
+                sphere. transform. position = targetPoint;
+                sphere. transform. localScale = new Vector3 (0.1f, 0.1f, 0.1f);
+                Material material = sphere.GetComponent<MeshRenderer>().material = new Material (Shader. Find ("KSP/Particles/Additive"));
+                material. color = Color. red;
+            }
+            else
+            {
+                sphere. transform. position = targetPoint;
+            }
+            
+        }
+
         private bool SampleTargetSet ()
         {
             //初始化所选择的机械臂的各项参数
@@ -256,53 +284,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             sampleMaxRangeRing. transform. position = ringCenter;
             sampleMaxRangeRing. transform. rotation = Quaternion. LookRotation (normal, sampleMaxRangeRing. transform. right);
             sampleMaxRangeRing. transform. SetParent (currentArmParts[0]. vessel. transform);
-        }
-
-        public void SetLine() 
-        {
-            LineRenderer lineRenderer = currentArmParts[0].jointTransform.gameObject.AddComponent<LineRenderer>();
-            lineRenderer.positionCount = 8; // XYZ轴各需要2个点
-            lineRenderer.useWorldSpace = false;
-            lineRenderer.startWidth = 0.1f;
-            lineRenderer.endWidth = 0.1f;
-            lineRenderer.loop = false;
-            lineRenderer.material = new Material(Shader.Find("KSP/Particles/Additive"));
-
-            // X轴（红）
-            lineRenderer.SetPosition(0, Vector3.zero);
-            lineRenderer.SetPosition(1, Vector3.right);
-
-            // Y轴（绿） 
-            lineRenderer.SetPosition(2, Vector3.zero);
-            lineRenderer.SetPosition(3, Vector3.up );
-
-            // Z轴（蓝）
-            lineRenderer.SetPosition(4, Vector3.zero);
-            lineRenderer.SetPosition(5, Vector3.forward );
-
-            // 指向目标点的线（黄色）
-            lineRenderer.SetPosition(6, Vector3.zero);
-            lineRenderer.SetPosition(7, currentArmParts[0].jointTransform.InverseTransformPoint(targetPoint));
-
-            // 颜色渐变控制
-            Gradient gradient = new Gradient();
-            gradient.SetKeys(
-                new GradientColorKey[] {
-                new GradientColorKey(Color.red, 0f),
-                new GradientColorKey(Color.red, 0.25f),
-                new GradientColorKey(Color.green, 0.26f),
-                new GradientColorKey(Color.green, 0.5f),
-                new GradientColorKey(Color.blue, 0.51f),
-                new GradientColorKey(Color.blue, 0.75f),
-                new GradientColorKey(Color.yellow, 0.76f),
-                new GradientColorKey(Color.yellow, 1f)
-                },
-                new GradientAlphaKey[] {
-                new GradientAlphaKey(1f, 0f),
-                new GradientAlphaKey(1f, 1f)
-                }
-            );
-            lineRenderer.colorGradient = gradient;
         }
         public float CalculatePositionTerrainHeight (out Vector3 ringCenter, out Vector3 normal)
         {
