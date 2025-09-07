@@ -24,6 +24,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         Vector3 normal;
         List<float> targetAngles = new List<float>();
         private event Action<bool> isMoving;
+        GameObject XAxis, YAxis, ZAxis, WXAxis, WYAxis, WZAxis;
         public bool IsCalCom
         {
             get { return isCalCom; }
@@ -48,7 +49,13 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         public void Start ()
         {
             currentArmParts = rocAutoCtrl. currentWorkingRoboticArm;
-            if(isMoving == null)
+            XAxis = new GameObject("XAxis");
+            YAxis = new GameObject("YAxis");
+            ZAxis = new GameObject("ZAxis");
+            WXAxis = new GameObject("WXAxis");
+            WYAxis = new GameObject("WYAxis");
+            WZAxis = new GameObject("WZAxis");
+            if (isMoving == null)
             {
                 isMoving += new Action<bool> (IsMoving);
             }
@@ -133,6 +140,14 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 //SetLine();
                 if ( !IsCalCom )
                 {
+                    XAxis.transform.position = YAxis.transform.position = ZAxis.transform.position = currentArmParts[0].servoHinge.gameObject.transform.position;
+                    XAxis.transform.rotation = Quaternion.LookRotation(currentArmParts[0].servoHinge.gameObject.transform.forward, currentArmParts[0].servoHinge.gameObject.transform.up);
+                    YAxis.transform.rotation = Quaternion.LookRotation(currentArmParts[0].servoHinge.gameObject.transform.forward, currentArmParts[0].servoHinge.gameObject.transform.up);
+                    ZAxis.transform.rotation = Quaternion.LookRotation(currentArmParts[0].servoHinge.gameObject.transform.forward, currentArmParts[0].servoHinge.gameObject.transform.up);
+                    XAxis.transform.parent = YAxis.transform.parent = ZAxis.transform.parent = currentArmParts[0].servoHinge.gameObject.transform;
+                    SetLine(XAxis, Vector3.zero, Vector3.right, Color.red);
+                    SetLine(YAxis, Vector3.zero, Vector3.up, Color.green);
+                    SetLine(ZAxis, Vector3.zero, Vector3.forward, Color.blue);
                     //开始计算机械臂逆解
                     targetAngles. Clear ();
                     if (roboticArmIK == null)
@@ -257,52 +272,24 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             sampleMaxRangeRing. transform. rotation = Quaternion. LookRotation (normal, sampleMaxRangeRing. transform. right);
             sampleMaxRangeRing. transform. SetParent (currentArmParts[0]. vessel. transform);
         }
-
-        public void SetLine() 
+        
+        public void SetLine(GameObject gameObject,Vector3 start,Vector3 end,Color color) 
         {
-            LineRenderer lineRenderer = currentArmParts[0].jointTransform.gameObject.AddComponent<LineRenderer>();
-            lineRenderer.positionCount = 8; // XYZ轴各需要2个点
+            LineRenderer lineRenderer;
+            if (!gameObject.TryGetComponent<LineRenderer>(out lineRenderer)) 
+            {
+                lineRenderer = gameObject.AddComponent<LineRenderer>();
+            }
+            lineRenderer.positionCount = 2; // XYZ轴各需要2个点
             lineRenderer.useWorldSpace = false;
             lineRenderer.startWidth = 0.1f;
             lineRenderer.endWidth = 0.1f;
             lineRenderer.loop = false;
             lineRenderer.material = new Material(Shader.Find("KSP/Particles/Additive"));
-
-            // X轴（红）
-            lineRenderer.SetPosition(0, Vector3.zero);
-            lineRenderer.SetPosition(1, Vector3.right);
-
-            // Y轴（绿） 
-            lineRenderer.SetPosition(2, Vector3.zero);
-            lineRenderer.SetPosition(3, Vector3.up );
-
-            // Z轴（蓝）
-            lineRenderer.SetPosition(4, Vector3.zero);
-            lineRenderer.SetPosition(5, Vector3.forward );
-
-            // 指向目标点的线（黄色）
-            lineRenderer.SetPosition(6, Vector3.zero);
-            lineRenderer.SetPosition(7, currentArmParts[0].jointTransform.InverseTransformPoint(targetPoint));
-
-            // 颜色渐变控制
-            Gradient gradient = new Gradient();
-            gradient.SetKeys(
-                new GradientColorKey[] {
-                new GradientColorKey(Color.red, 0f),
-                new GradientColorKey(Color.red, 0.25f),
-                new GradientColorKey(Color.green, 0.26f),
-                new GradientColorKey(Color.green, 0.5f),
-                new GradientColorKey(Color.blue, 0.51f),
-                new GradientColorKey(Color.blue, 0.75f),
-                new GradientColorKey(Color.yellow, 0.76f),
-                new GradientColorKey(Color.yellow, 1f)
-                },
-                new GradientAlphaKey[] {
-                new GradientAlphaKey(1f, 0f),
-                new GradientAlphaKey(1f, 1f)
-                }
-            );
-            lineRenderer.colorGradient = gradient;
+            lineRenderer.SetPosition(0, start);
+            lineRenderer.SetPosition(1, end);
+            lineRenderer.startColor = color;
+            lineRenderer.endColor = color;
         }
         public float CalculatePositionTerrainHeight (out Vector3 ringCenter, out Vector3 normal)
         {
