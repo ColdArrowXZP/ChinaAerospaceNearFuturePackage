@@ -21,6 +21,17 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         {
             get => armPartJointInfo;
         }
+        public Transform workPosTransform
+        {
+            get
+            {
+                if ( workPosName != "" && part.FindModelTransform (workPosName) != null )
+                    return part. FindModelTransform (workPosName);
+                else
+                    Debug.Log("workPosName is empty or not found, using part transform instead.");
+                return part. transform;
+            }
+        }
         public override void OnStart (StartState state)
         {
             base. OnStart (state);

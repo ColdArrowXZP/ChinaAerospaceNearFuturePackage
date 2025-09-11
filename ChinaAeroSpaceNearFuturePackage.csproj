@@ -136,7 +136,6 @@
     <Compile Include="Parts\RoboticArm\GrabbingArmCtrlLogic.cs" />
     <Compile Include="Parts\RoboticArm\ModuleCASNFP_RoboticArmPart.cs" />
     <Compile Include="Parts\ModuleInterstageFairing.cs" />
-    <Compile Include="Parts\RoboticArm\RoboticArmIK .cs" />
     <Compile Include="Parts\RoboticArm\SampleArmCtrlLogic.cs" />
     <Compile Include="Parts\RoboticArm\WorkArmCtrlLogic.cs" />
     <Compile Include="Properties\Settings.Designer.cs">

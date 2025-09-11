@@ -33,7 +33,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         public ModuleRoboticServoHinge servoHinge;
         public ArmPartType partType;
         public ArmWorkType armWorkType;
-        public Transform jointTransform;
+        public Transform transform;
         public float armLength;
         public float minLimit;
         public float maxLimit;
@@ -42,25 +42,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         public float currentAngle;
         public float instanceRotation;
         public Transform workPosTransform;
-        public static void SetLine (GameObject obj,Vector3 start,Vector3 end,Color color)
-        {
-            LineRenderer lineRenderer;
-            if (!obj. TryGetComponent<LineRenderer> (out lineRenderer) )
-            {
-                lineRenderer = obj. AddComponent<LineRenderer> ();
-                lineRenderer. positionCount = 2; // XYZ轴各需要2个点
-                lineRenderer. useWorldSpace = false;
-                lineRenderer. startWidth = 0.1f;
-                lineRenderer. endWidth = 0.1f;
-                lineRenderer. loop = false;
-                lineRenderer. material = new Material (Shader. Find ("KSP/Particles/Additive"));
-                
-            }
-            lineRenderer.startColor = color;
-            lineRenderer.endColor = color;
-            lineRenderer. SetPosition (0, start);
-            lineRenderer. SetPosition (1, end);
-
-        }
+        
     }
 }
