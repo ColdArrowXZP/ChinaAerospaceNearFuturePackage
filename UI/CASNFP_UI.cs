@@ -79,7 +79,7 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
                     item. ArmPartJointInfo. part = part;
                     item. ArmPartJointInfo. partIndexInVessel = vessel. Parts. IndexOf (part);
                     item. ArmPartJointInfo. servoHinge = part. FindModuleImplementing<ModuleRoboticServoHinge> ();
-                    item. ArmPartJointInfo. jointTransform = part. gameObject. GetChild (item.jointName). transform;
+                    item. ArmPartJointInfo. jointTransform = part.gameObject. GetChild (item.jointName). transform;
                     item. ArmPartJointInfo. maxLimit = item. ArmPartJointInfo. servoHinge. softMinMaxAngles. y;
                     item. ArmPartJointInfo. minLimit = item. ArmPartJointInfo. servoHinge. softMinMaxAngles. x;
                     item. ArmPartJointInfo. rotationSpeed = item. ArmPartJointInfo. servoHinge. CurrentVelocityLimit;

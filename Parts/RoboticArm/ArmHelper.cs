@@ -4,6 +4,7 @@ using System. Collections. Generic;
 using System. Linq;
 using System. Text;
 using System. Threading. Tasks;
+using TMPro;
 using UnityEngine;
 
 namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
@@ -21,7 +22,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         Grabbing, // 抓取式机械臂
         Camera, // 摄像类机械臂
     }
-    
+
     public class ArmPartJointInfo
     {
         public Vessel vessel;
@@ -41,5 +42,25 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         public float currentAngle;
         public float instanceRotation;
         public Transform workPosTransform;
+        public static void SetLine (GameObject obj,Vector3 start,Vector3 end,Color color)
+        {
+            LineRenderer lineRenderer;
+            if (!obj. TryGetComponent<LineRenderer> (out lineRenderer) )
+            {
+                lineRenderer = obj. AddComponent<LineRenderer> ();
+                lineRenderer. positionCount = 2; // XYZ轴各需要2个点
+                lineRenderer. useWorldSpace = false;
+                lineRenderer. startWidth = 0.1f;
+                lineRenderer. endWidth = 0.1f;
+                lineRenderer. loop = false;
+                lineRenderer. material = new Material (Shader. Find ("KSP/Particles/Additive"));
+                
+            }
+            lineRenderer.startColor = color;
+            lineRenderer.endColor = color;
+            lineRenderer. SetPosition (0, start);
+            lineRenderer. SetPosition (1, end);
+
+        }
     }
 }
