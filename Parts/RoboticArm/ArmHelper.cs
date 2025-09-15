@@ -22,26 +22,39 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         Grabbing, // 抓取式机械臂
         Camera, // 摄像类机械臂
     }
-
-    public class ArmPartJointInfo
+    public class ArmJoint
     {
-        public Vessel vessel;
-        public int partIndexInVessel;
-        public int partIndexInArm;
-
-        public Part part;
-        public ModuleRoboticServoHinge servoHinge;
-        public ArmPartType partType;
-        public ArmWorkType armWorkType;
         public Transform transform;
-        public float armLength;
-        public float minLimit;
-        public float maxLimit;
-        public float rotationSpeed;
-        public Vector3 rotationAxis;
+        public float rotateSpeed;
+        public Vector2 rotateLimit;
         public float currentAngle;
-        public float instanceRotation;
-        public Transform workPosTransform;
-        
+        public Vector3 rotateAxais;
+        public float initialAngle;
+
+        public ArmJoint (Transform jointTransform)
+        {
+            transform = jointTransform;
+            rotateSpeed = 5;
+            rotateLimit = new Vector2 (-180, 180);
+            currentAngle = 0;
+            initialAngle = 0;
+            rotateAxais = Vector3. right;
+        }
+
+        // 初始化时直接设置初始角度
+        public void Init ()
+        {
+            currentAngle = initialAngle;
+            transform. localRotation = Quaternion. Euler (initialAngle * rotateAxais);
+        }
+
+        // 直接用Transform控制角度
+        public void SetAngle (float targetAngle)
+        {
+            targetAngle = Mathf. Clamp (targetAngle, rotateLimit. x, rotateLimit. y);
+            // 平滑插值到目标角度
+            currentAngle = Mathf. MoveTowards (currentAngle, targetAngle, rotateSpeed * Time. deltaTime);
+            transform. localRotation = Quaternion. Euler (currentAngle * rotateAxais);
+        }
     }
 }

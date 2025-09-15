@@ -1,6 +1,8 @@
 ﻿using EdyCommonTools;
+using Expansions. Missions. Editor;
 using Expansions. Serenity;
 using KSP. Localization;
+using KSPAchievements;
 using System;
 using System. Collections;
 using System. Collections. Generic;
@@ -11,68 +13,131 @@ using UnityEngine;
 
 namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
 {
-     public class SampleArmCtrlLogic:MonoBehaviour
+    public class SampleArmCtrlLogic : MonoBehaviour
     {
-        CASNFP_SetRocAutoCtrl rocAutoCtrl;
-        List<ArmPartJointInfo> currentArmParts;
-        private bool isResetting = false;
-        private float resetThreshold = 0.5f; // 允许的误差
-        private Vector3 pendingTargetPos;
+        private ArmJoint baseJoint;
+        private float convergeThreshold = 0.5f;
+        private ModuleCASNFP_RoboticArmPart currentArmPart;
+        // 收敛距离阈值
+        private ArmJoint effectJoint;
         private bool hasPendingTarget = false;
+        private bool isResetting = false;
+        private int maxUnreachFrame = 1000;
+        private Vector3 pendingTargetPos;
+        private float resetThreshold = 0.5f;
+        private CASNFP_SetRocAutoCtrl rocAutoCtrl;
+        // 允许的误差
         private int unreachFrameCount = 0;
-        private int maxUnreachFrame = 1000; // 连续未收敛帧数阈值
-        private float convergeThreshold = 0.5f; // 收敛距离阈值
-        ArmPartJointInfo effectJoint;
-        ArmPartJointInfo baseJoint;
-        RaycastHit terrainHit;
-        //private event Action<bool> isMoving;
-        //public bool IsCalCom
-        //{
-        //    get { return isCalCom; }
-        //    private set 
-        //    {
-        //        if ( isCalCom != value )
-        //            isCalCom = value; 
-        //            isMoving?.Invoke (isCalCom);
-        //    }
-        //}
-
+         // 连续未收敛帧数阈值
+        private Transform workTransform;
+        List<ArmJoint> joints = new List<ArmJoint> ();
+        float jointLength;
+        Vector3 targetPosNoramlDir;
+        private List<float[]> armMotionRecord = new List<float[]> ();
+        private int playbackIndex = -1;
+        private bool isPlayingBack = false;
+        int armRotateSpeed; 
+        bool canSetTarget = true;
         public void Awake ()
         {
-            rocAutoCtrl = gameObject.GetComponent<CASNFP_SetRocAutoCtrl>();
+            rocAutoCtrl = gameObject. GetComponent<CASNFP_SetRocAutoCtrl> ();
             if ( rocAutoCtrl == null )
             {
                 Debug. Log ("程序错误,没有找到嫦娥机械臂控制程序");
-                Destroy(this);
+                Destroy (this);
             }
         }
+
         public void Start ()
         {
-            currentArmParts = rocAutoCtrl. currentWorkingRoboticArm;
-            effectJoint = currentArmParts[currentArmParts.Count - 1];
-            baseJoint = currentArmParts[0];
-            for ( int i = 0 ; i < currentArmParts. Count ; i++ )
-            {
-                currentArmParts[i].servoHinge. currentAngle = currentArmParts[i]. servoHinge.targetAngle;
-            }
+            currentArmPart = rocAutoCtrl. currentWorkingRoboticArm;
+            joints. Clear ();
+            joints = currentArmPart. joints;
+            baseJoint = currentArmPart. baseJoint;
+            effectJoint = currentArmPart. effectJoint;
+            workTransform = currentArmPart. part. FindModelTransform (currentArmPart. workPosName);
+            jointLength = Vector3. Distance (effectJoint. transform. position, workTransform. position);
+            armRotateSpeed = currentArmPart. armSpeed;
         }
-
-
-        public void OnDestroy ()
+        RaycastHit hit;
+        Vector3 targetPos;
+        public void Update ()
         {
-            if ( sphere != null )
+            if ( !HighLogic. LoadedSceneIsFlight )
             {
-                Destroy (sphere);
+                return;
+            }
+            if ( currentArmPart. vessel. srf_velocity. magnitude > 0.1d )
+            {
+                ScreenMessages. PostScreenMessage (
+                    Localizer. Format ($"载具移动，无法取样,机械臂回收"),
+                    2f, ScreenMessageStyle. UPPER_RIGHT);
+                isResetting = true;
+                return;
+            }
+            if ( isResetting )
+            {
+                ResetArmSmooth ();
+                return;
+            }
+            if (hit.collider!=null)
+            {
+                IK (targetPos);
+                // 收敛性判断，每帧执行
+                float dist = Vector3. Distance (workTransform. position, targetPos);
+                if ( dist > convergeThreshold )
+                {
+                    unreachFrameCount++;
+                    if ( unreachFrameCount > maxUnreachFrame )
+                    {
+                        Debug. LogWarning ("取样点位置过远，超出机械臂工作范围: " + targetPos +"当前执行帧数："+unreachFrameCount);
+                        hit = new RaycastHit();
+                        isResetting = true;
+                        hasPendingTarget = false;
+                        unreachFrameCount = 0;
+                    }
+                }
+                else
+                {
+                    unreachFrameCount = 0; // 已收敛，计数清零
+                    hit = new RaycastHit ();
+                    ScreenMessages. PostScreenMessage (
+                        Localizer. Format ($"机械臂已到达取样点,开始取样"),
+                        2f, ScreenMessageStyle. UPPER_RIGHT);
+                    // 触发取样动作,取样过程中不允许设置新目标，取样结束记得把canSetTarget设为true
+                    canSetTarget = false;
+                }
+            }
+            if ( !canSetTarget )
+            {
+                return;
+            }
+            if ( !Input. GetMouseButtonDown (0) )
+                return;
+            if ( !TryGetValidSamplePoint (out hit) )
+                return;
+            else
+            {
+                
+                targetPosNoramlDir = (hit.point - FlightGlobals.currentMainBody.transform.position).normalized;
+                targetPos = hit. point + targetPosNoramlDir * jointLength;
+                Debug. Log ("targetPos" + targetPos);
+
+                // 设置回归初始状态标志，并保存待处理目标
+                isResetting = true;
+                pendingTargetPos = hit. point;
+                hasPendingTarget = true;
             }
         }
-        //步骤：1、获取机械臂长度，2、获取机械臂基座位置地形高度，3、计算出机械臂工作范围半径，4、设置一个绿色圆环供玩家参考取样点，5、获取鼠标点击事件，6、计算取样点位置，7、执行取样动作。
+
+        
         private bool TryGetValidSamplePoint (out RaycastHit terrainHit)
         {
             var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
             if ( Physics. Raycast (ray, out terrainHit, Mathf. Infinity) )
             {
                 int num = terrainHit. collider. gameObject. layer;
-                if ( num != 10 && num !=15)
+                if ( num != 10 && num != 15 )
                 {
                     ScreenMessages. PostScreenMessage (
                         Localizer. Format ($"选择的不是地面点无法取样，请在原地面选点"),
@@ -86,120 +151,10 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 return false;
             }
         }
-        private IEnumerator ResetArmSmooth ()
-        {
-            bool allReached;
-            yield return new WaitUntil (() =>
-            {
-                allReached = true;
-                foreach ( var joint in currentArmParts )
-                {
-                    joint. servoHinge. targetAngle = joint. servoHinge. launchPosition;
-                    if ( Mathf. Abs (joint. servoHinge. currentAngle - joint. servoHinge. launchPosition) > resetThreshold )
-                        allReached = false;
-                }
-                return allReached; 
-            });
-            isResetCom = true;
-        }
-        bool isResetCom = false;
-        public void Update ()
-        {
-            if ( !HighLogic. LoadedSceneIsFlight)
-            {
-                return;
-            }
-            if ( currentArmParts[0]. vessel. srf_velocity. magnitude > 0.1d )
-            {
-                ScreenMessages. PostScreenMessage (
-                    Localizer. Format ($"载具移动中，无法取样"),
-                    2f, ScreenMessageStyle. UPPER_RIGHT);
-                return;
-            }
-            if ( isResetting && !isResetCom)
-            {
-                ScreenMessages. PostScreenMessage (
-                    Localizer. Format ($"机械臂重置中，请稍候"),
-                    2f, ScreenMessageStyle. UPPER_RIGHT);
-                StartCoroutine (ResetArmSmooth ());
-                isResetting = false;
-                return;
-            }
-            if ( hasPendingTarget && isResetCom)
-            {
-                IK (pendingTargetPos);
-                // 收敛性判断，每帧执行
-                float dist = Vector3. Distance (effectJoint. workPosTransform. position, pendingTargetPos);
-                if ( dist > convergeThreshold )
-                {
-                    unreachFrameCount++;
-                    if ( unreachFrameCount > maxUnreachFrame )
-                    {
-                        Debug. LogWarning ("取样点位置过远，超出机械臂工作范围: " + pendingTargetPos);
-                        isResetting = true;
-                        isResetCom = false;
-                        hasPendingTarget = false;
-                        Destroy (sphere);
-                        unreachFrameCount = 0;
-                    }
-                }
-                else
-                {
-                    unreachFrameCount = 0; // 已收敛，计数清零
-                    Debug. Log ("机械臂已收敛到目标位置，准备取样: " + pendingTargetPos);
-                    isResetting = true;
-                    isResetCom = false;
-                    hasPendingTarget = false;
-                    Destroy (sphere);
-                    // 在这里执行取样动作
-                }
-            }
-            if ( !Input. GetMouseButtonDown (0) )
-            {
-                ScreenMessages. PostScreenMessage (
-                    Localizer. Format ($"请选择取样地点"),
-                    2f, ScreenMessageStyle. UPPER_RIGHT);
-                return;
-            }
-            if ( !TryGetValidSamplePoint (out terrainHit) )
-            {
-                return;
-            }
-            else
-            {
-                pendingTargetPos = terrainHit.point;
-                //在targetPoint位置生成一个黄色球体，表示取样点
-                SetTargetSp (pendingTargetPos);
-                // 设置回归初始状态标志，并保存待处理目标
-                isResetting = true;
-                isResetCom = false;
-                hasPendingTarget = true;
-            }
-        }
-        //计算目标点的法向
-        private Vector3 CalSurfaceNomal (Vector3 point)
-        {
-
-            Ray ray = new Ray (point + Vector3. up * 0.5f, Vector3. down);
-            
-            if ( Physics. Raycast (ray, out RaycastHit hitInfo, 1f) )
-            {
-                return hitInfo. normal;
-            }
-            return Vector3. up; // 默认法线向上
-        }
         private void IK (Vector3 targetPos)
         {
-            Debug. Log ("进入了IK计算");
-            float groundY = targetPos. y; // 地面高度为鼠标点击位置的y
-            if ( targetPos. y < groundY )
-                targetPos. y = groundY;
-
-            // 计算effectJoint与workTransform的长度
-            float jointLength = Vector3. Distance (effectJoint.transform. position, effectJoint. workPosTransform. position);
-
             // IK迭代：只通过旋转驱动，不直接赋值位置
-            for ( int i = 0 ; i < 10 ; i++ )
+            for ( int i = 0 ; i < armRotateSpeed ; i++ )
             {
                 // 计算effectJoint的目标位置（始终在targetPos正上方，距离为jointLength）
                 Vector3 effectTargetPos = targetPos + Vector3. up * jointLength;
@@ -211,25 +166,30 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 if ( distanceToTarget < 0.01f )
                     break;
 
-                for ( int j = currentArmParts. Count - 2 ; j >= 0 ; j-- )
+                for ( int j = joints. Count - 2 ; j >= 0 ; j-- )
                 {
                     effectLocalPos = baseJoint. transform. InverseTransformPoint (effectJoint. transform. position);
                     Vector3 toTargetLocal = ( targetLocalPos - effectLocalPos ). normalized;
-                    Vector3 toJointLocal = ( effectLocalPos - baseJoint. transform. InverseTransformPoint (currentArmParts[j]. transform. position) ). normalized;
+                    Vector3 toJointLocal = ( effectLocalPos - baseJoint. transform. InverseTransformPoint (joints[j]. transform. position) ). normalized;
                     float cosAngle = Vector3. Dot (toTargetLocal, toJointLocal);
                     if ( cosAngle > 0.9999f )
                         continue;
                     float angle = Mathf. Acos (cosAngle) * Mathf. Rad2Deg;
                     Vector3 cross = Vector3. Cross (toJointLocal, toTargetLocal);
-                    if ( Vector3. Dot (cross, currentArmParts[j].servoHinge.GetMainAxis()) < 0 )
+                    if ( Vector3. Dot (cross, joints[j]. rotateAxais) < 0 )
                         angle = -angle;
-                    currentArmParts[j].servoHinge.targetAngle = currentArmParts[j].servoHinge. currentAngle + angle;
+                    joints[j]. SetAngle (joints[j]. currentAngle + angle);
                 }
+                // 记录当前帧所有关节角度
+                float[] angles = new float[joints. Count];
+                for ( int k = 0 ; k < joints. Count ; k++ )
+                    angles[k] = joints[k]. currentAngle;
+                armMotionRecord. Add (angles);
             }
-            for ( int i = 0 ; i < 10 ; i++ )
+            for ( int i = 0 ; i < armRotateSpeed ; i++ )
             {
-                Vector3 workLocalPos = baseJoint. transform. InverseTransformPoint (effectJoint. workPosTransform. position);
-                Vector3 targetLocalPos = baseJoint. transform. InverseTransformPoint (targetPos);
+                Vector3 workLocalPos = baseJoint. transform. InverseTransformPoint (workTransform. position);
+                Vector3 targetLocalPos = baseJoint. transform. InverseTransformPoint (pendingTargetPos);
                 float distanceToTarget = Vector3. Distance (targetLocalPos, workLocalPos);
                 if ( distanceToTarget < 0.01f )
                     break;
@@ -242,28 +202,49 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     continue;
                 float angle = Mathf. Acos (cosAngle) * Mathf. Rad2Deg;
                 Vector3 cross = Vector3. Cross (toJointLocal, toTargetLocal);
-                if ( Vector3. Dot (cross, effectJoint.servoHinge.GetMainAxis()) < 0 )
+                if ( Vector3. Dot (cross, effectJoint. rotateAxais) < 0 )
                     angle = -angle;
-                effectJoint.servoHinge.targetAngle =  effectJoint.servoHinge. currentAngle + angle;
+                effectJoint. SetAngle (effectJoint. currentAngle + angle);
             }
         }
-        GameObject sphere;
-        private void SetTargetSp (Vector3 targetPoint)
+        private void ResetArmSmooth ()
         {
-            if ( sphere == null )
+            if ( armMotionRecord. Count == 0 )
             {
-                sphere = GameObject. CreatePrimitive (PrimitiveType. Sphere);
-                Destroy (sphere. GetComponent<SphereCollider> ());
-                sphere. transform. position = targetPoint;
-                sphere. transform. localScale = new Vector3 (0.1f, 0.1f, 0.1f);
-                Material material = sphere.GetComponent<MeshRenderer>().material = new Material (Shader. Find ("KSP/Particles/Additive"));
-                material. color = Color. red;
+                // 没有展开轨迹，不执行回放，直接复位，并处理待处理目标
+                isResetting = false;
+                if ( hasPendingTarget )
+                {
+                    IK (targetPos);
+                    hasPendingTarget = false;
+                }
+                return;
             }
-            else
+
+            // 有展开轨迹，执行回放
+            // 每帧回放多步，加快回收速度
+            int stepsPerFrame = armRotateSpeed; // 可根据需要调整
+            for ( int step = 0 ; step < stepsPerFrame && playbackIndex >= 0 ; step++ )
             {
-                sphere. transform. position = targetPoint;
+                float[] angles = armMotionRecord[playbackIndex];
+                for ( int i = 0 ; i < joints. Count ; i++ )
+                {
+                    joints[i]. SetAngle (angles[i]);
+                }
+                playbackIndex--;
             }
-            
+
+            if ( playbackIndex < 0 )
+            {
+                isPlayingBack = false;
+                armMotionRecord. Clear ();
+                isResetting = false;
+                if ( hasPendingTarget )
+                {
+                    IK (targetPos);
+                    hasPendingTarget = false;
+                }
+            }
         }
     }
 }

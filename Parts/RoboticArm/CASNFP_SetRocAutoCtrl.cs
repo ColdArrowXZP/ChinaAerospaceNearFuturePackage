@@ -16,9 +16,9 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         int currentIndex;
         ConfigNode thisSetting = SettingLoader. CASNFP_GlobalSettings;
         Vector2 actionPram;
-        public List<ArmPartJointInfo>[] CASNFP_RoboticArmPart;
+        public ModuleCASNFP_RoboticArmPart[] CASNFP_RoboticArmPart;
         private event Action<Vector2> onValueChanged;
-        public List<ArmPartJointInfo> currentWorkingRoboticArm;
+        public ModuleCASNFP_RoboticArmPart currentWorkingRoboticArm;
         /// <summary>
         /// 所有的属性
         /// </summary>
@@ -130,7 +130,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             {
                 Destroy(cameraArmCtrlLogic);
             }
-            switch ( currentWorkingRoboticArm[0].armWorkType)
+            switch ( currentWorkingRoboticArm.armWorkType)
             {
                 case ArmWorkType. Sample_ChangE:
                     sampleArmCtrlLogic = gameObject. AddComponent<SampleArmCtrlLogic> ();
@@ -153,7 +153,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
         /// </summary>
         DialogGUIToggleGroup toggleGroup;
         DialogGUILabel label;
-        void CreatArmSelectionWindow (List<ArmPartJointInfo>[] roboticArmIndex)
+        void CreatArmSelectionWindow (ModuleCASNFP_RoboticArmPart[] roboticArmIndex)
         {
             int index = roboticArmIndex.Length;
             label = new DialogGUILabel (flexH: true, GetLabelString, 390f, 0f)
@@ -208,19 +208,11 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
             Debug. Log ($"原有机械臂序号是{actionPram. x}，新的机械臂序号是{actionPram. y}");
             if ( actionPram. x >= 0 )
             {
-                foreach ( var item in CASNFP_RoboticArmPart[( int )actionPram. x])
-                {
-                    Part p = item. part;
-                    p. Highlight (false);
-                }
+                CASNFP_RoboticArmPart[( int )actionPram. x].part. Highlight (false);
             }
             if ( actionPram. y >= 0 )
             {
-                foreach ( var item in CASNFP_RoboticArmPart[( int )actionPram. y])
-                {
-                    Part p = item. part;
-                    p. Highlight (true);
-                }
+               CASNFP_RoboticArmPart[( int )actionPram. y].part. Highlight (true);
             }
         }
         private void OnSave (ConfigNode node)
@@ -276,23 +268,16 @@ namespace ChinaAeroSpaceNearFuturePackage.Parts.RoboticArm
                 if ( actionPram. x != actionPram. y )
                 {
                     Debug. Log ("启动回收动作");
-                    foreach ( var item in CASNFP_RoboticArmPart[( int )actionPram.x])
+
+                    foreach ( var item in CASNFP_RoboticArmPart[( int )actionPram.x].joints)
                     {
 
-                        BaseServo servo = item. servoHinge;
-                        if ( servo. Events. Contains ("ResetPosition") )
-                        {
-                            servo. Events["ResetPosition"]. Invoke ();
-                        }
+                        item. SetAngle (item.initialAngle);
                     }
                 }
             }
             currentWorkingRoboticArm = CASNFP_RoboticArmPart[( int )actionPram. y];
-            foreach (var item in currentWorkingRoboticArm)
-            {
-                Part p = item.part;
-                p.Highlight(false);
-            }
+            currentWorkingRoboticArm.part.Highlight(false);
             SeparateWorkType ();
         }
         #endregion

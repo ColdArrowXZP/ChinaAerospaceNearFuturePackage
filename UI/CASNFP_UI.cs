@@ -32,7 +32,7 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
         public Rect rect = new Rect(0.5f, 0.5f, 300f, 200f);
         public MultiOptionDialog multi;
         PopupDialog popupDialog;
-        public List<ArmPartJointInfo>[] CASNFP_RoboticArmPart;
+        public ModuleCASNFP_RoboticArmPart[] CASNFP_RoboticArmPart;
         //[KSPEvent(guiActive = true,guiName ="",active =true)]
         protected override void OnTrue()
         {
@@ -69,137 +69,21 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
                 return;
             }
             //获取当前载具上的所有机械臂组件，将index为连续的机械臂组件放入机械臂数组中，如果中间有中断则划分为新的机械臂数组；检查同一机械臂数组是否符合至少一个底座、一个连接臂和一个工作臂的条件，符合条件则添加到机械臂列表中，不符合则忽略该机械臂数组并给出提示信息。
-            List<ArmPartJointInfo> armPartJointInfos = new List<ArmPartJointInfo> ();
+            List<ModuleCASNFP_RoboticArmPart> armParts = new List<ModuleCASNFP_RoboticArmPart> ();
             foreach ( Part part in vessel. Parts )
             {
                 ModuleCASNFP_RoboticArmPart item = part. FindModuleImplementing<ModuleCASNFP_RoboticArmPart> ();
                 if ( item != null )
                 {
-                    item. ArmPartJointInfo. vessel = vessel;
-                    item. ArmPartJointInfo. part = part;
-                    item. ArmPartJointInfo. partIndexInVessel = vessel. Parts. IndexOf (part);
-                    item. ArmPartJointInfo. servoHinge = part. FindModuleImplementing<ModuleRoboticServoHinge> ();
-                    item. ArmPartJointInfo. transform = part.gameObject. GetChild (item.jointName). transform;
-                    item. ArmPartJointInfo. maxLimit = item. ArmPartJointInfo. servoHinge. softMinMaxAngles. y;
-                    item. ArmPartJointInfo. minLimit = item. ArmPartJointInfo. servoHinge. softMinMaxAngles. x;
-                    item. ArmPartJointInfo. rotationSpeed = item. ArmPartJointInfo. servoHinge. CurrentVelocityLimit;
-                    item. ArmPartJointInfo. rotationAxis = item. ArmPartJointInfo. servoHinge. GetMainAxis ();
-                    item. ArmPartJointInfo. currentAngle = item. ArmPartJointInfo. servoHinge. currentAngle;
-                    item. ArmPartJointInfo. instanceRotation = item. ArmPartJointInfo.servoHinge.launchPosition;
-                    item. ArmPartJointInfo. armLength = item.armPartLength;
-                    if(item.ArmPartJointInfo.partType == ArmPartType.work )
-                        item. ArmPartJointInfo. workPosTransform = part. gameObject. GetChild (item.workPosName). transform;
-                    else item. ArmPartJointInfo. workPosTransform = part.gameObject.transform;
-                    armPartJointInfos. Add (item. ArmPartJointInfo);
+                    armParts. Add (item);
                 }
             }
-            if ( armPartJointInfos. Count == 0 )
+            if ( armParts. Count == 0 )
             {
                 Debug. Log ("错误:" + "当前载具上不存在机械臂组件");
                 return;
             }
-            
-            //根据partIndexInVessel的连续性对机械臂组件进行初步划分为多个机械臂数组
-            List<List<ArmPartJointInfo>> armGroups = new List<List<ArmPartJointInfo>> ();
-            List<ArmPartJointInfo> currentGroup = new List<ArmPartJointInfo> ();
-            for ( int i = 0; i < armPartJointInfos. Count; i++ )
-            {
-                if ( currentGroup. Count == 0 )
-                {
-                    currentGroup. Add (armPartJointInfos[i]);
-                }
-                else
-                {
-                    if ( armPartJointInfos[i]. partIndexInVessel == currentGroup[currentGroup. Count - 1]. partIndexInVessel + 1 )
-                    {
-                        currentGroup. Add (armPartJointInfos[i]);
-                    }
-                    else
-                    {
-                        armGroups. Add (new List<ArmPartJointInfo>(currentGroup) );
-                        currentGroup. Clear ();
-                        currentGroup. Add (armPartJointInfos[i]);
-                    }
-                }
-            }
-            armGroups. Add (new List<ArmPartJointInfo> (currentGroup));
-            Debug.Log("提示:当前载具上共检测到" + armGroups.Count + "组机械臂组件组合");
-            foreach ( var group in armGroups )
-            {
-                string groupInfo = "机械臂组件组合：";
-                foreach ( var partInfo in group )
-                {
-                    groupInfo += $"[{partInfo.partIndexInVessel}:{partInfo.partType}]";
-                }
-                Debug. Log (groupInfo);
-            }
-            //对每个机械臂数组进行检查，符合条件的添加到机械臂列表中。条件：1、从底座或者工作臂开始，到底座或者工作臂结束，中间可以有多个连接臂，且至少包含一个底座、两个连接臂和一个工作臂。2、如果检测到多个底座或者多个工作臂，对该机械臂数组进行划分，形成多个机械臂。3、每个机械臂的组件必须是连续的。4、机械臂组件的类型必须一致。
-            List<List<ArmPartJointInfo>> validArmGroups = new List<List<ArmPartJointInfo>> ();
-            foreach ( var group in armGroups )
-            {
-                int n = group.Count;
-                int i = 0;
-                while (i < n)
-                {
-                    // 1. 找到下一个A或C作为start
-                    if (!(group[i].partType == ArmPartType.Base || group[i].partType == ArmPartType.work))
-                    {
-                        i++;
-                        continue;
-                    }
-                    int start = i;
-                    ArmWorkType workType = group[start].armWorkType;
-
-                    // 2. 向后找下一个A或C（不包括start本身）
-                    int end = start + 1;
-                    while (end < n && !(group[end].partType == ArmPartType.Base || group[end].partType == ArmPartType.work))
-                    {
-                        end++;
-                    }
-                    // end指向下一个A或C，或n
-                    int segEnd = (end < n) ? end : n - 1;
-
-                    // 3. 检查[start,segEnd]是否满足条件
-                    int baseCount = 0, workCount = 0, linkCount = 0;
-                    bool typeConsistent = true, isContinuous = true;
-                    for (int k = start; k <= segEnd; k++)
-                    {
-                        if (group[k].armWorkType != workType)
-                            typeConsistent = false;
-                        if (k > start && group[k].partIndexInVessel != group[k - 1].partIndexInVessel + 1)
-                            isContinuous = false;
-                        if (group[k].partType == ArmPartType.Base) baseCount++;
-                        else if (group[k].partType == ArmPartType.work) workCount++;
-                        else if (group[k].partType == ArmPartType.link) linkCount++;
-                    }
-                    if (typeConsistent && isContinuous && baseCount >= 1 && workCount >= 1 && linkCount >= 2)
-                    {
-                        validArmGroups.Add(group.GetRange(start, segEnd - start + 1));
-                    }
-                    // 4. 下一个start
-                    i = (end < n) ? end : n;
-                }
-            }
-            if ( validArmGroups. Count == 0 )
-            {
-                Debug. Log ("错误:" + "当前载具上不存在符合条件的机械臂组件组合");
-                return;
-            }
-            else
-            {
-                Debug. Log ("提示:当前载具上共检测到" + validArmGroups. Count + "组符合条件的机械臂组件组合" );
-                foreach ( var arm in validArmGroups )
-                {
-                    string armInfo = "机械臂组件列表：";
-                    foreach ( var partInfo in arm )
-                    {
-                        partInfo.partIndexInArm = arm. IndexOf (partInfo);
-                        armInfo += $"[{partInfo.partIndexInVessel}:{partInfo.partType}]";
-                    }
-                    Debug. Log (armInfo);
-                }
-                CASNFP_RoboticArmPart = validArmGroups. ToArray ();
-            }
+            CASNFP_RoboticArmPart = armParts. ToArray ();
         }
         //启动机械臂自动控制的UI控制窗口
         private void StartAutoCtrl ()
