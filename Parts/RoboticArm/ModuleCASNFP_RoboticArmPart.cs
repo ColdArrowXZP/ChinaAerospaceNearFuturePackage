@@ -19,6 +19,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         public ArmJoint link01Joint;
         public ArmJoint link02Joint;
         public ArmJoint effectJoint;
+        public Transform workPos;
         public List<ArmJoint> joints = new List<ArmJoint> ();
         public ArmPartType armPartType
         {
@@ -58,8 +59,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 joints. Add (link01Joint);
                 joints. Add (link02Joint);
                 joints. Add (effectJoint);
-
-                // 伪物理方案：不再添加Rigidbody和HingeJoint，不做物理连接
+                workPos = part. FindModelTransform (workPosName);
             }
         }
     }

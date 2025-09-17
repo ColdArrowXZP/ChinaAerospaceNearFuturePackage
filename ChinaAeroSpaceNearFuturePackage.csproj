@@ -126,16 +126,17 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FX\CASNFP_Shield.cs" />
     <Compile Include="FX\CZ11LaunchSmoke.cs" />
     <Compile Include="FX\CZ2F_EscapeTowerFX.cs" />
     <Compile Include="FX\CZ2F_EscapeTowerFX2.cs" />
     <Compile Include="Parts\CZ2F_EscapeTower.cs" />
+    <Compile Include="Parts\ModuleInterstageFairing.cs" />
     <Compile Include="Parts\RoboticArm\ArmHelper.cs" />
     <Compile Include="Parts\RoboticArm\CameraArmCtrlLogic.cs" />
     <Compile Include="Parts\RoboticArm\CASNFP_SetRocAutoCtrl.cs" />
     <Compile Include="Parts\RoboticArm\GrabbingArmCtrlLogic.cs" />
     <Compile Include="Parts\RoboticArm\ModuleCASNFP_RoboticArmPart.cs" />
-    <Compile Include="Parts\ModuleInterstageFairing.cs" />
     <Compile Include="Parts\RoboticArm\SampleArmCtrlLogic.cs" />
     <Compile Include="Parts\RoboticArm\WorkArmCtrlLogic.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
@@ -143,12 +144,12 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tools&amp;Settings\AssetBundleLoader.cs" />
-    <Compile Include="Tools&amp;Settings\SettingLoader.cs" />
     <Compile Include="Tools&amp;Settings\CASNFP_Globals.cs" />
+    <Compile Include="Tools&amp;Settings\SettingLoader.cs" />
     <Compile Include="UI\AppLauncherBtn.cs" />
     <Compile Include="UI\CASNFP_UI.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Properties\Settings.settings">

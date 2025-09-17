@@ -15,29 +15,28 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
 {
     public class SampleArmCtrlLogic : MonoBehaviour
     {
+        private List<float[]> armMotionRecord = new List<float[]> ();
+        private int armRotateSpeed;
         private ArmJoint baseJoint;
+        private bool canSetTarget = true;
         private float convergeThreshold = 0.5f;
         private ModuleCASNFP_RoboticArmPart currentArmPart;
-        // 收敛距离阈值
         private ArmJoint effectJoint;
         private bool hasPendingTarget = false;
+        private RaycastHit hit;
+        private bool isPlayingBack = false;
         private bool isResetting = false;
+        private float jointLength;
+        private List<ArmJoint> joints = new List<ArmJoint> ();
         private int maxUnreachFrame = 1000;
         private Vector3 pendingTargetPos;
+        private int playbackIndex = -1;
         private float resetThreshold = 0.5f;
         private CASNFP_SetRocAutoCtrl rocAutoCtrl;
-        // 允许的误差
+        private Vector3 targetPos;
+        private Vector3 targetPosNoramlDir;
         private int unreachFrameCount = 0;
-         // 连续未收敛帧数阈值
         private Transform workTransform;
-        List<ArmJoint> joints = new List<ArmJoint> ();
-        float jointLength;
-        Vector3 targetPosNoramlDir;
-        private List<float[]> armMotionRecord = new List<float[]> ();
-        private int playbackIndex = -1;
-        private bool isPlayingBack = false;
-        int armRotateSpeed; 
-        bool canSetTarget = true;
         public void Awake ()
         {
             rocAutoCtrl = gameObject. GetComponent<CASNFP_SetRocAutoCtrl> ();
@@ -55,12 +54,10 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             joints = currentArmPart. joints;
             baseJoint = currentArmPart. baseJoint;
             effectJoint = currentArmPart. effectJoint;
-            workTransform = currentArmPart. part. FindModelTransform (currentArmPart. workPosName);
+            workTransform = currentArmPart. workPos;
             jointLength = Vector3. Distance (effectJoint. transform. position, workTransform. position);
             armRotateSpeed = currentArmPart. armSpeed;
         }
-        RaycastHit hit;
-        Vector3 targetPos;
         public void Update ()
         {
             if ( !HighLogic. LoadedSceneIsFlight )
@@ -80,7 +77,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 ResetArmSmooth ();
                 return;
             }
-            if (hit.collider!=null)
+            if ( hit. collider != null )
             {
                 IK (targetPos);
                 // 收敛性判断，每帧执行
@@ -90,8 +87,8 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     unreachFrameCount++;
                     if ( unreachFrameCount > maxUnreachFrame )
                     {
-                        Debug. LogWarning ("取样点位置过远，超出机械臂工作范围: " + targetPos +"当前执行帧数："+unreachFrameCount);
-                        hit = new RaycastHit();
+                        Debug. LogWarning ("取样点位置过远，超出机械臂工作范围: " + targetPos + "当前执行帧数：" + unreachFrameCount);
+                        hit = new RaycastHit ();
                         isResetting = true;
                         hasPendingTarget = false;
                         unreachFrameCount = 0;
@@ -118,8 +115,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 return;
             else
             {
-                
-                targetPosNoramlDir = (hit.point - FlightGlobals.currentMainBody.transform.position).normalized;
+                targetPosNoramlDir = ( hit. point - FlightGlobals. currentMainBody. transform. position ). normalized;
                 targetPos = hit. point + targetPosNoramlDir * jointLength;
                 Debug. Log ("targetPos" + targetPos);
 
@@ -130,27 +126,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
             }
         }
 
-        
-        private bool TryGetValidSamplePoint (out RaycastHit terrainHit)
-        {
-            var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
-            if ( Physics. Raycast (ray, out terrainHit, Mathf. Infinity) )
-            {
-                int num = terrainHit. collider. gameObject. layer;
-                if ( num != 10 && num != 15 )
-                {
-                    ScreenMessages. PostScreenMessage (
-                        Localizer. Format ($"选择的不是地面点无法取样，请在原地面选点"),
-                        2f, ScreenMessageStyle. UPPER_RIGHT);
-                    return false;
-                }
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
         private void IK (Vector3 targetPos)
         {
             // IK迭代：只通过旋转驱动，不直接赋值位置
@@ -207,6 +182,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 effectJoint. SetAngle (effectJoint. currentAngle + angle);
             }
         }
+
         private void ResetArmSmooth ()
         {
             if ( armMotionRecord. Count == 0 )
@@ -220,7 +196,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 }
                 return;
             }
-
             // 有展开轨迹，执行回放
             // 每帧回放多步，加快回收速度
             int stepsPerFrame = armRotateSpeed; // 可根据需要调整
@@ -244,6 +219,27 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                     IK (targetPos);
                     hasPendingTarget = false;
                 }
+            }
+        }
+
+        private bool TryGetValidSamplePoint (out RaycastHit terrainHit)
+        {
+            var ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
+            if ( Physics. Raycast (ray, out terrainHit, Mathf. Infinity) )
+            {
+                int num = terrainHit. collider. gameObject. layer;
+                if ( num != 10 && num != 15 )
+                {
+                    ScreenMessages. PostScreenMessage (
+                        Localizer. Format ($"选择的不是地面点无法取样，请在原地面选点"),
+                        2f, ScreenMessageStyle. UPPER_RIGHT);
+                    return false;
+                }
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
     }
