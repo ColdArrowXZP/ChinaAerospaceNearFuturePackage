@@ -15,7 +15,6 @@ namespace ChinaAeroSpaceNearFuturePackage
         private static string assemblyFile;
         private static string assemblyName;
         private static string assemblyPath;
-        private static string settingsPath;
         /// <summary>
         /// 中国航天近未来包程序集文件。
         /// </summary>
@@ -48,17 +47,6 @@ namespace ChinaAeroSpaceNearFuturePackage
             {
                 return assemblyPath
                     ?? (assemblyPath = AssemblyFile.Replace(AssemblyName, ""));
-            }
-        }
-        /// <summary>
-        /// 中国航天近未来包程序集设置文件路径。
-        /// </summary>
-        public static string SettingsPath
-        {
-            get
-            {
-                return settingsPath
-                    ?? (settingsPath = Path.Combine(AssemblyPath, @"Settings\"));
             }
         }
     }

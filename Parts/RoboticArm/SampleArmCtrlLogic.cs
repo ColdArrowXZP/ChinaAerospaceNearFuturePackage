@@ -1,4 +1,5 @@
-﻿using EdyCommonTools;
+﻿using ChinaAeroSpaceNearFuturePackage. Core. Managers;
+using EdyCommonTools;
 using Expansions. Missions. Editor;
 using Expansions. Serenity;
 using KSP. Localization;

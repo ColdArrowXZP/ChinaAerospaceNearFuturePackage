@@ -3,12 +3,10 @@ using System;
 using System. Collections. Generic;
 using UnityEngine;
 
-namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
+namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 {
     public class ModuleCASNFP_RoboticArmPart : PartModule
     {
-        [KSPField]
-        public int thisPartBelongArmType = 0;// 机械臂组件类型枚举,0=基座,1=连接臂,2=工作臂,3=其他类型
         [KSPField]
         public int thisPartBelongWorkType = 0; // 机械臂类型索引,0=取样（嫦娥）机械臂,1=吸盘式（天宫）机械臂,2=抓取式机械臂,3=摄像类机械臂，4=其他类型
         [KSPField]
@@ -21,13 +19,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
         public ArmJoint effectJoint;
         public Transform workPos;
         public List<ArmJoint> joints = new List<ArmJoint> ();
-        public ArmPartType armPartType
-        {
-            get
-            {
-                return ( ArmPartType )thisPartBelongArmType;
-            }
-        }
         public ArmWorkType armWorkType
         {
             get
@@ -35,6 +26,7 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 return ( ArmWorkType )thisPartBelongWorkType;
             }
         }
+        public ArmState armState = ArmState. Idle;
         public override void OnStart (StartState state)
         {
             base. OnStart (state);
@@ -60,7 +52,6 @@ namespace ChinaAeroSpaceNearFuturePackage. Parts. RoboticArm
                 joints. Add (link02Joint);
                 joints. Add (effectJoint);
                 workPos = part. FindModelTransform (workPosName);
-                this.gameObject.AddComponent<ArmStateMachine> ();
             }
         }
     }
