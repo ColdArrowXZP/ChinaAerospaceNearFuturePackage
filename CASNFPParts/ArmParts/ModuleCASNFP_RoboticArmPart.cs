@@ -15,21 +15,6 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         public string workPosName = "workDrill"; // 机械臂工作端位置名称,用于机械臂工作端位置定位
         [KSPField]
         public int armSpeed = 5; // 机械臂移动速度,单位度/秒
-        
-        private bool isStartAutoCtrl = false; // 是否开始自动控制
-        public bool IsStartAutoCtrl 
-        {
-            get 
-            { return isStartAutoCtrl; } 
-            set
-            {
-                if ( isStartAutoCtrl != value )
-                {
-                    isStartAutoCtrl = value;
-                    return;
-                }
-            }
-        }// 是否开始自动控制
         private ArmJoint baseJoint;
         private ArmJoint link01Joint;
         private ArmJoint link02Joint;
@@ -45,6 +30,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         }
 
         public ArmState armState = ArmState. Idle;
+
         public override void OnStart (StartState state)
         {
             base. OnStart (state);
@@ -72,7 +58,5 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 workPos = part. FindModelTransform (workPosName);
             }
         }
-        
     }
 }
-

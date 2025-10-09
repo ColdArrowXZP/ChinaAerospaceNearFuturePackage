@@ -14,7 +14,7 @@ namespace ChinaAeroSpaceNearFuturePackage. UI
         private PopupDialog popupDialog;
         public List<ModuleCASNFP_RoboticArmPart> RoboticArms;
         public Vessel currentVessel;
-        private AdvancedArmCtrlLogic armCtrlLogic;
+        private ArmSelectUI armCtrlLogic;
         protected override void Awake ()
         {
             base.Awake ();
@@ -36,17 +36,17 @@ namespace ChinaAeroSpaceNearFuturePackage. UI
         protected override void OnTrue ()
         {
             DialogGUIBox dialogGUIBox = new DialogGUIBox ("版本号：V" + CASNFP_Globals. CASNFP_VERSION + "\n" + "欢迎使用中国航天包", 30f, 30f);
-            DialogGUIButton armCtrlBtn = new DialogGUIButton ("启动机械臂自动控制程序", ArmCtrlStart, EnabledCondition:()=> { return RoboticArms. Count > 0; },false);
+            DialogGUIButton armCtrlBtn = new DialogGUIButton ("启动机械臂自动控制程序", StartArmSelectUI, EnabledCondition:()=> { return RoboticArms. Count > 0; },false);
             DialogGUIButton closeBtn = new DialogGUIButton ("关闭CASNFP控制面板", () => { LauncherButton. SetFalse (); }, true);
             DialogGUIBase[] a = { dialogGUIBox, armCtrlBtn, closeBtn };
             multi = new MultiOptionDialog ("CASNFP_ControlPanel", "", "中国航天包控制面板", HighLogic. UISkin, rect, a);
             popupDialog = PopupDialog. SpawnPopupDialog (new Vector2 (0.5f, 0.5f), new Vector2 (0.5f, 0.5f), multi, false, HighLogic. UISkin, false, "CASNFP_UI");
         }
-        private void ArmCtrlStart ()
+        private void StartArmSelectUI ()
         {
             if ( armCtrlLogic == null )
             {
-                this. gameObject. AddComponent<AdvancedArmCtrlLogic> ();
+                this. gameObject. AddComponent<ArmSelectUI> ();
             }
             else
             {

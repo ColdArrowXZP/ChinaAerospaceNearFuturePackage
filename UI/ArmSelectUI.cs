@@ -1,14 +1,12 @@
 ﻿using ChinaAeroSpaceNearFuturePackage. Core. Managers;
-using ChinaAeroSpaceNearFuturePackage. UI;
-using CommNet. Network;
+using ChinaAeroSpaceNearFuturePackage. CASNFPParts.ArmParts;
 using System;
 using System. Collections. Generic;
 using UnityEngine;
-using UnityEngine. UI;
 
-namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
+namespace ChinaAeroSpaceNearFuturePackage.UI
 {
-    public class AdvancedArmCtrlLogic : MonoBehaviour
+    public class ArmSelectUI : MonoBehaviour
     {
         private static int selectedArmIndex = 0;
         private List<ModuleCASNFP_RoboticArmPart> roboticArms;

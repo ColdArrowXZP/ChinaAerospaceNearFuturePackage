@@ -126,7 +126,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CASNFPParts\ArmParts\AdvancedArmCtrlLogic.cs" />
+    <Compile Include="UI\ArmSelectUI.cs" />
     <Compile Include="CASNFPParts\ArmParts\ArmHelper.cs" />
     <Compile Include="Core\Interfaces\IAssetBundleLoader.cs" />
     <Compile Include="Core\Interfaces\IConfigManager.cs" />
