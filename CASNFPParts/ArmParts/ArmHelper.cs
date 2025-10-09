@@ -9,6 +9,19 @@ using UnityEngine;
 
 namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 {
+    public interface IModuleCASNFP_RoboticArmPart
+    {
+        ArmWorkType WorkType {get;}
+        bool IsStartAutoCtrl {get; set;}
+        void StartAutoCtrl ();
+        ArmState GetArmState ();
+        Vector3 GetTargetPos ();//获取目标位置
+        void ExtendArm (Vector3 targetPos); // 伸展机械臂
+        void RetractArm (); // 收缩机械臂
+        void PerformAction (); // 执行动作
+        void StopAction (); // 停止动作 
+
+    }
     public enum ArmWorkType // 机械臂类型枚举
     {
         Sample_ChangE, // 取样（嫦娥）机械臂

@@ -1,6 +1,8 @@
-﻿using Expansions. Serenity;
+﻿using ChinaAeroSpaceNearFuturePackage. Core. Managers;
+using Expansions. Serenity;
 using System;
 using System. Collections. Generic;
+using System. Linq;
 using UnityEngine;
 
 namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
@@ -13,19 +15,35 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         public string workPosName = "workDrill"; // 机械臂工作端位置名称,用于机械臂工作端位置定位
         [KSPField]
         public int armSpeed = 5; // 机械臂移动速度,单位度/秒
-        public ArmJoint baseJoint;
-        public ArmJoint link01Joint;
-        public ArmJoint link02Joint;
-        public ArmJoint effectJoint;
-        public Transform workPos;
-        public List<ArmJoint> joints = new List<ArmJoint> ();
-        public ArmWorkType armWorkType
+        
+        private bool isStartAutoCtrl = false; // 是否开始自动控制
+        public bool IsStartAutoCtrl 
+        {
+            get 
+            { return isStartAutoCtrl; } 
+            set
+            {
+                if ( isStartAutoCtrl != value )
+                {
+                    isStartAutoCtrl = value;
+                    return;
+                }
+            }
+        }// 是否开始自动控制
+        private ArmJoint baseJoint;
+        private ArmJoint link01Joint;
+        private ArmJoint link02Joint;
+        private ArmJoint effectJoint;
+        private Transform workPos;
+        private List<ArmJoint> joints = new List<ArmJoint> ();
+        public ArmWorkType WorkType
         {
             get
             {
                 return ( ArmWorkType )thisPartBelongWorkType;
             }
         }
+
         public ArmState armState = ArmState. Idle;
         public override void OnStart (StartState state)
         {
@@ -33,7 +51,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             if ( HighLogic. LoadedSceneIsFlight )
             {
                 baseJoint = new ArmJoint (part. FindModelTransform ("node1"));
-                baseJoint.rotateSpeed = armSpeed;
+                baseJoint. rotateSpeed = armSpeed;
                 baseJoint. rotateAxais = Vector3. forward;
                 baseJoint. rotateSpeed = 10f;
                 baseJoint. Init ();
@@ -54,6 +72,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 workPos = part. FindModelTransform (workPosName);
             }
         }
+        
     }
 }
 

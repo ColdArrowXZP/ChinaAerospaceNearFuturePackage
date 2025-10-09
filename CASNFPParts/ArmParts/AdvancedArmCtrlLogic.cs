@@ -84,25 +84,29 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         //根据当前机械臂工作类型，启动相应的自动控制逻辑
         private void StartAutoCtrl (ModuleCASNFP_RoboticArmPart currentArm)
         {
-            switch ( currentArm. armWorkType )
+            CASNFPLogger. Instance. Log ("进入自动控制状态，当前控制的机械臂为:" + currentArm. part. name + "；工作类型为：" + currentArm. WorkType. ToString ());
+            switch ( currentArm. WorkType )
             {
                 case ArmWorkType. Sample_ChangE:
+                    CASNFPLogger.Instance.LogError("取样机械臂已在自动控制状态，请勿重复启动。");
                     break;
 
                 case ArmWorkType. Grabbing:
+                    CASNFPLogger. Instance. Log ("进入抓取机械臂控制程序。（当前未实现）");
                     break;
 
                 case ArmWorkType. Walk_TianGong:
+                    CASNFPLogger. Instance. Log ("进入天宫巡游机械臂控制程序。（当前未实现）");
                     break;
 
                 case ArmWorkType. Camera:
+                    CASNFPLogger. Instance. Log ("进入相机机械臂控制程序。（当前未实现）");
                     break;
 
                 default:
+                    CASNFPLogger. Instance. LogError ("未知的机械臂类型");
                     break;
             }
-
-            CASNFPLogger. Instance. Log ("进入自动控制状态，当前控制的机械臂为" + currentArm. part. name);
         }
 
         #region 创建机械臂选择窗口，确认选择并显示

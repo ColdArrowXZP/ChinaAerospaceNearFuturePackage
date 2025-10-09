@@ -128,7 +128,6 @@
   <ItemGroup>
     <Compile Include="CASNFPParts\ArmParts\AdvancedArmCtrlLogic.cs" />
     <Compile Include="CASNFPParts\ArmParts\ArmHelper.cs" />
-    <Compile Include="CASNFPParts\ArmParts\IRoboticArmControler.cs" />
     <Compile Include="Core\Interfaces\IAssetBundleLoader.cs" />
     <Compile Include="Core\Interfaces\IConfigManager.cs" />
     <Compile Include="Core\Managers\AssetBundleManager.cs" />
