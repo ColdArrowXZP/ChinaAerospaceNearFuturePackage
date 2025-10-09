@@ -14,12 +14,16 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         [KSPField]
         public string workPosName = "workDrill"; // 机械臂工作端位置名称,用于机械臂工作端位置定位
         [KSPField]
-        public int armSpeed = 5; // 机械臂移动速度,单位度/秒
-        private ArmJoint baseJoint;
-        private ArmJoint link01Joint;
-        private ArmJoint link02Joint;
-        private ArmJoint effectJoint;
+        public string basePosName = "basePos"; // 机械臂基座位置名称,用于机械臂基座位置定位
+        private int armDefSpeed = 5; // 机械臂默认移动速度,单位度/秒
+        [KSPField]
+        public string baseTransform = "node1,10,Z,-180,180,0"; // 机械臂基座位置名称,用于机械臂基座位置定位
+        [KSPField]
+        public string effectTransform = "node4,10,X,-180,180,0"; // 机械臂工作端位置名称,用于机械臂工作端位置定位
+        [KSPField(guiActive = true,)]
+        public string LinksTransform = "node2,5,X,-107,107,0|node3,5,X,-180,180,0"; // 机械臂大臂段位置名称,用“,”隔开,用于机械臂大臂段位置定位
         private Transform workPos;
+        private Transform basePos;
         private List<ArmJoint> joints = new List<ArmJoint> ();
         public ArmWorkType WorkType
         {
@@ -34,29 +38,12 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         public override void OnStart (StartState state)
         {
             base. OnStart (state);
-            if ( HighLogic. LoadedSceneIsFlight )
-            {
-                baseJoint = new ArmJoint (part. FindModelTransform ("node1"));
-                baseJoint. rotateSpeed = armSpeed;
-                baseJoint. rotateAxais = Vector3. forward;
-                baseJoint. rotateSpeed = 10f;
-                baseJoint. Init ();
-                link01Joint = new ArmJoint (part. FindModelTransform ("node2"));
-                baseJoint. rotateSpeed = armSpeed;
-                link01Joint. rotateLimit = new Vector2 (-107, 107);
-                link01Joint. Init ();
-                link02Joint = new ArmJoint (part. FindModelTransform ("node3"));
-                baseJoint. rotateSpeed = armSpeed;
-                link02Joint. Init ();
-                effectJoint = new ArmJoint (part. FindModelTransform ("node4"));
-                baseJoint. rotateSpeed = armSpeed;
-                effectJoint. Init ();
-                joints. Add (baseJoint);
-                joints. Add (link01Joint);
-                joints. Add (link02Joint);
-                joints. Add (effectJoint);
-                workPos = part. FindModelTransform (workPosName);
-            }
+            GameEvents.onFlightReady. Add (OnFlightReady);
+        }
+
+        private void OnFlightReady ()
+        {
+            throw new NotImplementedException ();
         }
     }
 }

@@ -126,6 +126,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CASNFPParts\ArmParts\RoboticArmController.cs" />
     <Compile Include="UI\ArmSelectUI.cs" />
     <Compile Include="CASNFPParts\ArmParts\ArmHelper.cs" />
     <Compile Include="Core\Interfaces\IAssetBundleLoader.cs" />

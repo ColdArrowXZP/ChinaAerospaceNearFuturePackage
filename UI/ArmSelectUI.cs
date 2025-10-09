@@ -74,19 +74,35 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
                 StartAutoCtrl (CurrentArm);
             }
         }
+        //获取目标点位置
+        private void Update ()
+        {
+            if ( CurrentArm == null )
+                return;
 
+        }
         private void OnDestroy ()
         {
             onValueChanged = null;
         }
         //根据当前机械臂工作类型，启动相应的自动控制逻辑
+        public RoboticArmController armController;
         private void StartAutoCtrl (ModuleCASNFP_RoboticArmPart currentArm)
         {
             CASNFPLogger. Instance. Log ("进入自动控制状态，当前控制的机械臂为:" + currentArm. part. name + "；工作类型为：" + currentArm. WorkType. ToString ());
+            armController = new RoboticArmController ();
             switch ( currentArm. WorkType )
             {
                 case ArmWorkType. Sample_ChangE:
-                    CASNFPLogger.Instance.LogError("取样机械臂已在自动控制状态，请勿重复启动。");
+                    if ( !currentArm. gameObject. TryGetComponent<RoboticArmController> (out armController) )
+                    {
+                        armController = currentArm. gameObject. AddComponent<RoboticArmController> ();
+                    }
+                    else
+                    {
+                        CASNFPLogger.Instance.LogError("取样机械臂已在自动控制状态，请勿重复启动。");
+                    }
+                    
                     break;
 
                 case ArmWorkType. Grabbing:
