@@ -84,7 +84,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         }
     }
 
-    public interface IModuleCASNFP_RoboticArmPart
+    public interface IArmController
     {
         ArmWorkType WorkType
         {
