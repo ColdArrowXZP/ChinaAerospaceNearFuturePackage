@@ -1,11 +1,5 @@
 ﻿using ChinaAeroSpaceNearFuturePackage. Core. Managers;
-using Expansions. Serenity;
-using System;
 using System. Collections. Generic;
-using System. Linq;
-using System. Text;
-using System. Threading. Tasks;
-using TMPro;
 using UnityEngine;
 
 namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
@@ -55,9 +49,10 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         /// <param name="jointString">字符串格式要求：关节名称、旋转速度、旋转轴、最小角度、最大角度、初始角度，用“,”隔开；如果设置多个大臂则每个大臂之间用“|”隔开,如"node1,0,X,-180,180,0|node2,5,y,-90,90,0|node3,10,Z,0,180,0"</param>
         /// <param name="armPartGameObject">机械臂部件的GameObject</param>
         /// <returns>返回值：ArmJoint数组List，每个元素代表一个关节</returns>
-        public static List<ArmJoint> SetJointWithString (string jointString, GameObject armPartGameObject)
+        public static List<ArmJoint> SetJointWithString (string jointString, Part part)
         {
             List<ArmJoint> joints = new List<ArmJoint> ();
+            joints.Clear ();
             string[] splitJoint = jointString. Split ('|');
             string[] splitJointInfo;
             for ( int i = 0 ; i < splitJoint. Length ; i++ )
@@ -66,18 +61,13 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 for ( int j = 0 ; j < splitJointInfo. Length ; j++ )
                 {
                     splitJointInfo[j] = splitJointInfo[j]. Trim ();
-                    if ( splitJointInfo[j]. Length != 6 )
-                    {
-                        CASNFPLogger.Instance.LogError ("机械臂部件" + armPartGameObject. name + "的关节信息字符串格式错误，请检查字符串格式。");
-                    }
                 }
-                ArmJoint joint = new ArmJoint (armPartGameObject. transform. Find (splitJointInfo[0]). transform);
+                ArmJoint joint = new ArmJoint (part.FindModelTransform(splitJointInfo[0]));
                 joint. rotateSpeed = float. Parse (splitJointInfo[1]);
                 joint. rotateAxais = rotateAxai (splitJointInfo[2]);
-                Vector2 vector2 = new Vector2(float.Parse(splitJointInfo[3]), float.Parse(splitJointInfo[4]));
-                joint.rotateLimit = vector2;
-                joint.initialAngle = float. Parse (splitJointInfo[5]);
-                joint. Init ();
+                Vector2 vector2 = new Vector2 (float. Parse (splitJointInfo[3]), float. Parse (splitJointInfo[4]));
+                joint. rotateLimit = vector2;
+                joint. initialAngle = float. Parse (splitJointInfo[5]);
                 joints. Add (joint);
             }
             return joints;

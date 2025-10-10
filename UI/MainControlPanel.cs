@@ -1,4 +1,5 @@
 ﻿using ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts;
+using ChinaAeroSpaceNearFuturePackage. Core. Managers;
 using ChinaAeroSpaceNearFuturePackage. UI;
 using System;
 using System.Collections.Generic;
@@ -44,9 +45,10 @@ namespace ChinaAeroSpaceNearFuturePackage. UI
         }
         private void StartArmSelectUI ()
         {
+            
             if ( armCtrlLogic == null )
             {
-                this. gameObject. AddComponent<ArmSelectUI> ();
+                armCtrlLogic = this.gameObject. AddComponent<ArmSelectUI> ();
             }
             else
             {
@@ -58,6 +60,7 @@ namespace ChinaAeroSpaceNearFuturePackage. UI
         {
             if ( popupDialog != null )
             popupDialog.Dismiss ();
+            
         }
         protected override void OnDestroy ()
         {

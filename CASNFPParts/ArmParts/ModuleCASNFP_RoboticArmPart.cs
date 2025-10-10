@@ -1,9 +1,11 @@
 ﻿using ChinaAeroSpaceNearFuturePackage. Core. Managers;
 using Expansions. Serenity;
 using System;
+using System. Collections;
 using System. Collections. Generic;
 using System. Linq;
 using UnityEngine;
+using UnityEngine. Events;
 
 namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 {
@@ -14,7 +16,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         [KSPField]
         public string workPosName = "workDrill"; // 机械臂工作端位置名称,用于机械臂工作端位置定位
         [KSPField]
-        public string basePosName = "basePos"; // 机械臂基座位置名称,用于机械臂基座位置定位
+        public string basePosName = "node1"; // 机械臂基座位置名称,用于机械臂基座位置定位
         [KSPField]
         public string baseJointInfo = "node1,10,Z,-180,180,0"; // 机械臂基座位置名称,用于机械臂基座位置定位
         [KSPField]
@@ -32,7 +34,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 return ( ArmWorkType )thisPartBelongWorkType;
             }
         }
-        private ArmState armState;
+        private ArmState armState = ArmState.Idle;
         public ArmState ArmState 
         {
             get { return armState; } 
@@ -40,20 +42,20 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             {
                 if (armState != value)
                 {
+                    OnArmStateChanged?.Fire(value);
                     armState = value;
-                    OnArmStateChanged?.Invoke(armState);
                 }
             } 
         }
-        public event Action<ArmState> OnArmStateChanged;
+        public EventData<ArmState> OnArmStateChanged = new EventData<ArmState> ("OnArmStateChanged");
         public override void OnStart (StartState state)
         {
             base. OnStart (state);
-            InstializeJoints();
-            OnArmStateChanged += OnArmStateChangedEvent;
-            GameEvents.onFlightReady. Add (OnFlightReady);
+            if ( HighLogic. LoadedScene != GameScenes. FLIGHT )
+                return;
+            OnArmStateChanged.Add (OnArmStateChangedEvent);
+            InstializeJoints ();
         }
-
         private void OnArmStateChangedEvent(ArmState state)
         {
             //根据状态执行不同的操作,如：机械臂展开、机械臂收回、机械臂工作等。
@@ -63,17 +65,22 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                     Idle();
                     break;
                 case ArmState.Retracting:
-                    RetractArm();
+                    StartCoroutine(RetractArm ());
                     break;
                 case ArmState.Extanding:
-                    ExtendArm(targetAngle);
+                    StartCoroutine (ExtendArm (targetAngle));
                     break;
                 case ArmState.Doing:
-                    Doing();
+                    Doing ();
                     break;
                 default:
                     break;
             }
+        }
+        public override void OnUpdate ()
+        {
+            base. OnUpdate ();
+
         }
         private void Idle() 
         {
@@ -81,44 +88,64 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         }
         private void Doing()
         {
-            CASNFPLogger.Instance.LogWarning("机械臂正在工作");
+            CASNFPLogger. Instance. Log("机械臂正在工作");
         }
 
-        private void ExtendArm(float targetAngle)
+        private IEnumerator ExtendArm (float targetAngle)
         {
             //机械臂展开,根据机械臂的关节信息，依次展开机械臂
+            CASNFPLogger. Instance. Log ("机械臂正在展开");
             foreach (ArmJoint joint in joints)
             {
                 joint.SetAngle(targetAngle);
             }
+            yield return new WaitUntil(() => 
+            {
+                //判断机械臂是否全部展开(targetAngle - joint.currentAngle < 0.01f)
+                return joints.All(joint => Mathf.Abs(targetAngle - joint.currentAngle) < 0.01f);
+            });
+            CASNFPLogger.Instance.Log("机械臂展开完成");
+            ArmState = ArmState.Doing;
         }
 
-        private void RetractArm()
+        private IEnumerator RetractArm ()
         {
             //机械臂收回,根据机械臂的关节信息，依次收回机械臂
-            foreach (ArmJoint joint in joints)
+            CASNFPLogger. Instance. Log ("机械臂正在回收");
+            foreach ( ArmJoint joint in joints )
             {
-                joint.SetAngle(joint.initialAngle);
+                joint. SetAngle (joint. initialAngle);
             }
+            yield return new WaitUntil (() =>
+            {
+                //判断机械臂是否全部收回(joint.initialAngle - joint.currentAngle < 0.01f)
+                return joints. All (joint => Mathf. Abs (joint. initialAngle - joint. currentAngle) < 0.01f);
+            });
+            CASNFPLogger. Instance. Log ("机械臂回收完成");
+            ArmState = ArmState. Idle;
         }
 
         private void InstializeJoints() 
         {   //初始化关节
-            workPos = gameObject.transform.Find(workPosName);
-            basePos = gameObject.transform.Find(basePosName);
-            ArmJoint[] linkJoints = ArmHelper.SetJointWithString(linkJointsInfo, gameObject).ToArray();
+            workPos = this. part. FindModelTransform (workPosName);
+            basePos = this.part. FindModelTransform ( basePosName);
+            ArmJoint[] linkJoints = ArmHelper.SetJointWithString(linkJointsInfo,this.part).ToArray();
             joints = new ArmJoint[linkJoints.Length + 2];
-            joints[0] = ArmHelper.SetJointWithString(baseJointInfo, gameObject)[0];
-            joints[joints.Length - 1] = ArmHelper.SetJointWithString(effectJointInfo, gameObject)[0];
+            joints[0] = ArmHelper.SetJointWithString(baseJointInfo, this.part)[0];
+            joints[joints.Length - 1] = ArmHelper.SetJointWithString(effectJointInfo, this. part)[0];
             for (int i = 0; i < linkJoints.Length; i++)
             {
                 joints[i + 1] = linkJoints[i];
             }
-            armState = ArmState.Idle;
+            foreach (ArmJoint joint in joints)
+            {
+                joint.Init(); 
+            }
+            ArmState = ArmState.Idle;
         }
-        private void OnFlightReady ()
+        private void OnDestroy ()
         {
-            throw new NotImplementedException ();
+            OnArmStateChanged.Remove(OnArmStateChangedEvent);
         }
     }
 }

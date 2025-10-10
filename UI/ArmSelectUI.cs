@@ -94,15 +94,15 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
             switch ( currentArm. WorkType )
             {
                 case ArmWorkType. Sample_ChangE:
-                    if ( !currentArm. gameObject. TryGetComponent<RoboticArmController> (out armController) )
+                    if ( !currentArm.part. gameObject. TryGetComponent<RoboticArmController> (out armController) )
                     {
-                        armController = currentArm. gameObject. AddComponent<RoboticArmController> ();
+                        armController = currentArm.part.gameObject. AddComponent<RoboticArmController> ();
+                        armController. controlledArm = currentArm;
                     }
                     else
                     {
-                        CASNFPLogger.Instance.LogError("取样机械臂已在自动控制状态，请勿重复启动。");
+                        armController. controlledArm = currentArm;
                     }
-                    
                     break;
 
                 case ArmWorkType. Grabbing:
