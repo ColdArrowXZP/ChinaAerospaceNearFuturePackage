@@ -60,33 +60,37 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             switch (state) 
             {
                 case ArmState.Idle:
-
+                    Idle();
                     break;
                 case ArmState.Retracting:
+                    RetractArm();
                     break;
                 case ArmState.Extanding:
+                    ExtendArm(targetAngle);
                     break;
                 case ArmState.Doing:
+                    Doing();
                     break;
                 default:
                     break;
             }
         }
-        public override void OnUpdate()
+        private void Idle() 
         {
-            base.OnUpdate();
-            if (!HighLogic.LoadedSceneIsFlight) return;
-            
+            CASNFPLogger.Instance.Log("机械臂处于空闲状态");
         }
-
         private void Doing()
         {
-            throw new NotImplementedException();
+            CASNFPLogger.Instance.LogWarning("机械臂正在工作");
         }
 
         private void ExtendArm(float targetAngle)
         {
             //机械臂展开,根据机械臂的关节信息，依次展开机械臂
+            foreach (ArmJoint joint in joints)
+            {
+                joint.SetAngle(targetAngle);
+            }
         }
 
         private void RetractArm()
