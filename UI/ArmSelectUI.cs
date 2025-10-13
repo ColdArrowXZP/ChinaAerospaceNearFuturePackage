@@ -55,13 +55,13 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
 
         public void Awake ()
         {
-            mainControlPanel = this. gameObject. GetComponent<MainControlPanel> ();
-            roboticArms = mainControlPanel. RoboticArms;
             onValueChanged += new Action<Vector2> (OnValueChanged);
         }
 
         public void Start ()
         {
+            mainControlPanel = this. gameObject. GetComponent<MainControlPanel> ();
+            roboticArms = mainControlPanel. RoboticArms;
             roboticArms[CurrentIndex]. part. Highlight (true);
             if ( roboticArms. Count > 1 )
             {
