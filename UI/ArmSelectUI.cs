@@ -60,9 +60,13 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
 
         public void Start ()
         {
+            Debug.Log("第一步");
             mainControlPanel = this. gameObject. GetComponent<MainControlPanel> ();
+            Debug.Log("第二步");
             roboticArms = mainControlPanel. RoboticArms;
+            Debug.Log("第三步");
             roboticArms[CurrentIndex]. part. Highlight (true);
+            Debug.Log("第四步");
             if ( roboticArms. Count > 1 )
             {
                 ShowArmSelectionWindow (roboticArms);
@@ -193,11 +197,17 @@ namespace ChinaAeroSpaceNearFuturePackage.UI
 
         private void ConfirmSelection ()
         {
+            CASNFPLogger. Instance. Log ("确认选择机械臂ConfirmSelection");
             dialog1?.Dismiss ();
+            Debug.Log("第一步");
             roboticArms[CurrentIndex]. part. Highlight (false);
+            Debug.Log("第二步");
             MainControlPanel. LauncherButton. SetFalse ();
+            Debug.Log("第三步");
             CurrentArm = roboticArms[CurrentIndex];
+            Debug.Log("第四步");
             StartAutoCtrl (CurrentArm);
+            Debug.Log("第五步");
         }
 
         private string GetLabelString ()
