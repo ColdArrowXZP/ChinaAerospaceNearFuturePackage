@@ -100,6 +100,7 @@ namespace ChinaAeroSpaceNearFuturePackage.CASNFPParts.ArmParts
                     if (Vector3.Dot(cross, joints[j].rotateAxais) < 0)
                         angle = -angle;
                     joints[j].SetAngle(joints[j].currentAngle + angle);
+
                 }
             }
             for (int i = 0; i < ikSpeed; i++)
