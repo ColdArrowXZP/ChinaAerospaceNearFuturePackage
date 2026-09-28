@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using ChinaAeroSpaceNearFuturePackage. Core. Managers;
+using UnityEngine;
 using ChinaAeroSpaceNearFuturePackage.Core.Enums;
 namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 {

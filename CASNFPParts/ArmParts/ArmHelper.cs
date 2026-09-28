@@ -57,6 +57,24 @@ namespace ChinaAeroSpaceNearFuturePackage.CASNFPParts.ArmParts
         }
     }
 
+    // 枚举机器人手臂的工作类型
+    public enum ArmWorkType
+    {
+        Sample_ChangE,
+        Walk_TianGong,
+        Grabbing,
+        Camera,
+    }
+
+    // 枚举机器人手臂的状态
+    public enum ArmState
+    {
+        Idle,
+        Extending,
+        Retracting,
+        Doing,
+    }
+
     // 表示一个关节的类
     public class ArmJoint
     {
@@ -133,6 +151,103 @@ namespace ChinaAeroSpaceNearFuturePackage.CASNFPParts.ArmParts
             targetAngle = Mathf.Clamp(targetAngle, RotateLimit.x, RotateLimit.y);
             CurrentAngle = Mathf.MoveTowards(CurrentAngle, targetAngle, RotateSpeed * Time.deltaTime);
             Transform.localRotation = Quaternion.Euler(CurrentAngle * RotateAxais);
+        }
+    }
+}
+
+                case "Y":
+                    rotaAxai = Vector3. up;
+                    break;
+
+                case "Z":
+                    rotaAxai = Vector3. forward;
+                    break;
+
+                case "x":
+                    rotaAxai = Vector3. right;
+                    break;
+
+                case "y":
+                    rotaAxai = Vector3. up;
+                    break;
+
+                case "z":
+                    rotaAxai = Vector3. forward;
+                    break;
+            }
+            return rotaAxai;
+        }
+
+        public static List<ArmJoint> SetJointWithString (string jointString, Part part)
+        {
+            List<ArmJoint> joints = new List<ArmJoint> ();
+            joints. Clear ();
+            string[] splitJoint = jointString. Split ('|');
+            string[] splitJointInfo;
+            for ( int i = 0 ; i < splitJoint. Length ; i++ )
+            {
+                splitJointInfo = splitJoint[i]. Split (',');
+                for ( int j = 0 ; j < splitJointInfo. Length ; j++ )
+                {
+                    splitJointInfo[j] = splitJointInfo[j]. Trim ();
+                }
+                ArmJoint joint = new ArmJoint (part. FindModelTransform (splitJointInfo[0]));
+                joint. rotateSpeed = float. Parse (splitJointInfo[1]);
+                joint. rotateAxais = rotateAxai (splitJointInfo[2]);
+                Vector2 vector2 = new Vector2 (float. Parse (splitJointInfo[3]), float. Parse (splitJointInfo[4]));
+                joint. rotateLimit = vector2;
+                joint. initialAngle = float. Parse (splitJointInfo[5]);
+                joints. Add (joint);
+            }
+            return joints;
+        }
+    }
+    public enum ArmWorkType
+    {
+        Sample_ChangE,
+        Walk_TianGong,
+        Grabbing,
+        Camera,
+    }
+
+    public enum ArmState
+    {
+        Idle,
+        Extanding,
+        Retracting,
+        Doing,
+    }
+
+    public class ArmJoint
+    {
+        public Transform transform;
+        public float rotateSpeed;
+        public Vector2 rotateLimit;
+        public float currentAngle;
+        public Vector3 rotateAxais;
+        public float initialAngle;
+
+        public ArmJoint (Transform jointTransform)
+        {
+            transform = jointTransform;
+            rotateSpeed = 5;
+            rotateLimit = new Vector2 (-180, 180);
+            currentAngle = 0;
+            initialAngle = 0;
+            rotateAxais = Vector3. right;
+        }
+
+        public void Init ()
+        {
+            currentAngle = initialAngle;
+            transform. localRotation = Quaternion. Euler (initialAngle * rotateAxais);
+        }
+
+        public void SetAngle (float targetAngle)
+        {
+            targetAngle = Mathf. Clamp (targetAngle, rotateLimit. x, rotateLimit. y);
+            currentAngle = Mathf. MoveTowards (currentAngle, targetAngle, rotateSpeed * Time. deltaTime);
+            transform. localRotation = Quaternion. Euler (currentAngle * rotateAxais);
         }
     }
 }
