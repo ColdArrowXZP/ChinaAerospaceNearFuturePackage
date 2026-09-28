@@ -42,19 +42,28 @@ namespace ChinaAeroSpaceNearFuturePackage.CASNFPParts.ArmParts
                 {
                     splitJointInfo[j] = splitJointInfo[j].Trim();
                 }
-                ArmJoint joint = new ArmJoint
-                {
-                    Transform = part.FindModelTransform(splitJointInfo[0]),
-                    RotateSpeed = float.Parse(splitJointInfo[1]),
-                    RotateAxais = GetAxis(splitJointInfo[2]),
-                    RotateLimit = new Vector2(float.Parse(splitJointInfo[3]), float.Parse(splitJointInfo[4])),
-                    InitialAngle = float.Parse(splitJointInfo[5])
-                };
-
-                joints.Add(joint);
+                
             }
             return joints;
         }
+    }
+
+    // 枚举机器人手臂的工作类型
+    public enum ArmWorkType
+    {
+        Sample_ChangE,
+        Walk_TianGong,
+        Grabbing,
+        Camera,
+    }
+
+    // 枚举机器人手臂的状态
+    public enum ArmState
+    {
+        Idle,
+        Extending,
+        Retracting,
+        Doing,
     }
 
     // 表示一个关节的类
