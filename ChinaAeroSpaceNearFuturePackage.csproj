@@ -153,18 +153,16 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CASNFPParts\ArmParts\RoboticArmController.cs" />
-    <Compile Include="Core\Enums\ArmState.cs" />
-    <Compile Include="Core\Enums\ArmType.cs" />
-    <Compile Include="Core\Interfaces\IRoboticArm.cs" />
-    <Compile Include="CASNFPParts\ArmParts\ArmSelectUI.cs" />
     <Compile Include="CASNFPParts\ArmParts\ArmHelper.cs" />
+    <Compile Include="CASNFPParts\ArmParts\ArmJointData.cs" />
+    <Compile Include="CASNFPParts\ArmParts\BaseMechanicalArmModule.cs" />
+    <Compile Include="CASNFPParts\ArmParts\IMechanicalArm.cs" />
+    <Compile Include="CASNFPParts\ArmParts\ModuleSampleArm.cs" />
     <Compile Include="Core\Interfaces\IAssetBundleLoader.cs" />
     <Compile Include="Core\Interfaces\IConfigManager.cs" />
     <Compile Include="Core\Managers\AssetBundleManager.cs" />
     <Compile Include="Core\Managers\ConfigManager.cs" />
     <Compile Include="Core\Managers\CASNFPLogger.cs" />
-    <Compile Include="CASNFPParts\ArmParts\ModuleCASNFP_RoboticArmPart.cs" />
     <Compile Include="Properties\Settings.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>

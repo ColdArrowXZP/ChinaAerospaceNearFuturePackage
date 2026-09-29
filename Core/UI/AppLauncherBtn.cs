@@ -164,6 +164,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Core.UI
 
         protected virtual void OnReady ()
         {
+            CASNFPLogger. Instance. Log ("工具栏按钮已准备好");
         }
 
         protected virtual void OnTrue ()
@@ -172,6 +173,7 @@ namespace ChinaAeroSpaceNearFuturePackage.Core.UI
 
         protected virtual void OnUnreadifying ()
         {
+            CASNFPLogger. Instance. Log ("工具栏按钮已删除");
         }
     }
 }
