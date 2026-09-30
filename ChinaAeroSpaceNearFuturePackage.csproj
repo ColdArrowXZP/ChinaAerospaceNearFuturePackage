@@ -153,10 +153,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CASNFPParts\ArmParts\ArmHelper.cs" />
-    <Compile Include="CASNFPParts\ArmParts\ArmJointData.cs" />
-    <Compile Include="CASNFPParts\ArmParts\BaseMechanicalArmModule.cs" />
-    <Compile Include="CASNFPParts\ArmParts\IMechanicalArm.cs" />
     <Compile Include="CASNFPParts\ArmParts\ModuleSampleArm.cs" />
     <Compile Include="Core\Interfaces\IAssetBundleLoader.cs" />
     <Compile Include="Core\Interfaces\IConfigManager.cs" />

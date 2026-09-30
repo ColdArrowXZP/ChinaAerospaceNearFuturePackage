@@ -1,71 +1,410 @@
 ﻿using System;
-using System. Collections. Generic;
-using System. Threading;
-using System. Threading. Tasks;
+using System.Collections;
+using System.Reflection;
 using UnityEngine;
 
-namespace CASNFPParts. ArmParts
+/// <summary>
+/// 动态机械臂模块：挂在机械臂基座Part上，运行时自动生成独立物理的大臂/小臂子Part
+/// </summary>
+
+namespace CASNFPParts.ArmParts
 {
-    /// <summary>
-    /// 示例机械臂实现，继承 BaseMechanicalArmModule。
-    /// 把正/逆运动学求解委托给 ArmHelper。
-    /// </summary>
-    public class SampleArm : BaseMechanicalArmModule
+    public class ModuleSampleArm : PartModule
     {
-        public override void OnStart (StartState state)
+        [KSPField] public string upperArmPartName = "MechArm_UpperArm"; // 大臂Part的cfg里的name
+        [KSPField] public string lowerArmPartName = "MechArm_LowerArm"; // 小臂Part的cfg里的name
+
+        // 大臂相对于基座锚点的位置偏移（本地坐标）
+        [KSPField] public Vector3 upperArmOffset = new Vector3(0, 0.5f, 0);
+        // 大臂初始旋转（本地欧拉角）
+        [KSPField] public Vector3 upperArmRotation = Vector3.zero;
+        // 大臂关节旋转范围（绕关节X轴，单位：度）
+        [KSPField] public Vector2 upperAngleLimit = new Vector2(-90f, 90f);
+        // 大臂关节电机驱动力
+        [KSPField] public float upperMotorForce = 10f;
+
+        // 小臂相对于大臂锚点的位置偏移
+        [KSPField] public Vector3 lowerArmOffset = new Vector3(0, 1.2f, 0);
+        [KSPField] public Vector3 lowerArmRotation = Vector3.zero;
+        [KSPField] public Vector2 lowerAngleLimit = new Vector2(-120f, 0f);
+        [KSPField] public float lowerMotorForce = 8f;
+
+        // 关节断裂力/扭矩，设为Mathf.Infinity表示不会断
+        [KSPField] public float jointBreakForce = Mathf.Infinity;
+        [KSPField] public float jointBreakTorque = Mathf.Infinity;
+
+        // ==============================================
+        // 运行时私有变量
+        // ==============================================
+        private Part upperArmPart; // 动态生成的大臂Part实例
+        private Part lowerArmPart; // 动态生成的小臂Part实例
+        private ConfigurableJoint upperJoint; // 基座-大臂关节
+        private ConfigurableJoint lowerJoint; // 大臂-小臂关节
+        private Transform upperArmAnchor; // 基座上的大臂关节锚点
+        private Transform lowerArmAnchor; // 大臂上的小臂关节锚点
+        private bool isInitialized = false; // 初始化标记，防止重复生成
+
+        // 存档持久化用：存储子Part的唯一ID，读档时恢复
+        [KSPField(isPersistant = true)] private uint upperArmFlightId = 0;
+        [KSPField(isPersistant = true)] private uint lowerArmFlightId = 0;
+
+        // 机械臂控制目标角度
+        private float upperTargetAngle = 0f;
+        private float lowerTargetAngle = 0f;
+
+        // ==============================================
+        // 生命周期方法
+        // ==============================================
+        public override void OnStart(StartState state)
         {
-            base. OnStart (state);
-            // 这里可以做臂特化初始化，例如设置默认 joint 目标、工具偏移等
-            for ( int i = 0 ; i < joints. Count ; i++ )
+            base.OnStart(state);
+
+            // 仅在飞行场景执行动态生成逻辑，编辑器场景保留预览模型
+            if (!HighLogic.LoadedSceneIsFlight) return;
+
+            // 找到主Part上预设的锚点
+            upperArmAnchor = part.transform.Find("UpperArmAnchor");
+            if (upperArmAnchor == null) upperArmAnchor = part.transform; // 找不到就用根节点兜底
+
+            // 隐藏主Part自带的大臂/小臂预览模型（避免和动态生成的模型重叠）
+            Transform previewUpper = part.transform.Find("UpperArmModel");
+            Transform previewLower = part.transform.Find("LowerArmModel");
+            if (previewUpper != null) previewUpper.gameObject.SetActive(false);
+            if (previewLower != null) previewLower.gameObject.SetActive(false);
+
+            // 尝试从现有Vessel中恢复已生成的子Part（读档场景）
+            bool restoredSuccess = RestoreSubPartsFromVessel();
+
+            if (!restoredSuccess)
             {
-                // 确保 targetEuler 有合理初始值
-                joints[i]. targetEuler = joints[i]. jointTransform != null ? joints[i]. jointTransform. localEulerAngles : Vector3. zero;
+                // 第一次加载，动态生成子Part
+                try
+                {
+                    // 先挂大臂（基座→大臂）
+                    upperArmPart = CreateSubPart(upperArmPartName, part, upperArmOffset, Quaternion.Euler(upperArmRotation));
+                    if (upperArmPart == null)
+                    {
+                        Debug.LogError($"[机械臂] 找不到大臂Part配置：{upperArmPartName}");
+                        return;
+                    }
+                    upperArmFlightId = upperArmPart.flightID; // 存ID用于存档
+
+                    // 找到大臂上的小臂锚点
+                    lowerArmAnchor = upperArmPart.transform.Find("LowerArmAnchor");
+                    if (lowerArmAnchor == null) lowerArmAnchor = upperArmPart.transform;
+
+                    // 再挂小臂（大臂→小臂）
+                    lowerArmPart = CreateSubPart(lowerArmPartName, upperArmPart, lowerArmOffset, Quaternion.Euler(lowerArmRotation));
+                    if (lowerArmPart == null)
+                    {
+                        Debug.LogError($"[机械臂] 找不到小臂Part配置：{lowerArmPartName}");
+                        return;
+                    }
+                    lowerArmFlightId = lowerArmPart.flightID;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[机械臂] 生成子Part失败：{e.Message}\n{e.StackTrace}");
+                    return;
+                }
+            }
+            //处理Part销毁时的逻辑
+            part.OnJustAboutToBeDestroyed += OnPartDestroy;
+            // 等待物理初始化完成后再创建关节（避免Rigidbody未生成导致报错）
+            StartCoroutine(WaitAndInitPhysics());
+        }
+
+        /// <summary>
+        /// 固定物理帧更新：处理机械臂驱动和输入
+        /// </summary>
+        public void FixedUpdate()
+        {
+            if (!isInitialized || !vessel.isActiveVessel) return;
+
+            // ===== 基础输入控制示例（可以替换成你自己的控制逻辑）=====
+            // I/K控制大臂上下，O/L控制小臂上下
+            if (Input.GetKey(KeyCode.I)) upperTargetAngle = Mathf.Clamp(upperTargetAngle + 1f, upperAngleLimit.x, upperAngleLimit.y);
+            if (Input.GetKey(KeyCode.K)) upperTargetAngle = Mathf.Clamp(upperTargetAngle - 1f, upperAngleLimit.x, upperAngleLimit.y);
+            if (Input.GetKey(KeyCode.O)) lowerTargetAngle = Mathf.Clamp(lowerTargetAngle + 1f, lowerAngleLimit.x, lowerAngleLimit.y);
+            if (Input.GetKey(KeyCode.L)) lowerTargetAngle = Mathf.Clamp(lowerTargetAngle - 1f, lowerAngleLimit.x, lowerAngleLimit.y);
+
+            // 更新关节驱动，让机械臂转到目标角度
+            UpdateJointDrive(upperJoint, upperTargetAngle, upperMotorForce);
+            UpdateJointDrive(lowerJoint, lowerTargetAngle, lowerMotorForce);
+        }
+
+        /// <summary>
+        /// Part销毁时清理动态生成的子Part，避免残留垃圾
+        /// </summary>
+        public void OnPartDestroy()
+        {
+            if (HighLogic.LoadedSceneIsFlight)
+            {
+                if (upperArmPart != null) Destroy(upperArmPart.gameObject);
+                if (lowerArmPart != null) Destroy(lowerArmPart.gameObject);
             }
         }
 
-        /// <summary>
-        /// 同步求解 IK：返回每关节 (x,y,z) 扁平化的角度数组（单位 deg）。
-        /// </summary>
-        public bool TrySolveIK (Vector3 targetWorldPos, out double[] jointAngles)
+        public void OnDestroy() 
         {
-            return ArmHelper. SolveIK_CCD (joints, endEffectorTransform, targetWorldPos, out jointAngles);
+            part.OnJustAboutToBeDestroyed -= OnPartDestroy;
         }
+        // ==============================================
+        // 核心逻辑方法
+        // ==============================================
 
         /// <summary>
-        /// 异步移动到世界坐标位置：先求解 IK，再把求解出的角度写入 joints[].targetEuler，
-        /// 由基类的 ArmUpdate 驱动角度平滑跟随。这里返回一个完成的 Task（如果需要等待到达可以改为轮询检测）。
+        /// 动态创建子Part并挂载到父Part
         /// </summary>
-        public Task<bool> MoveToPositionAsync (Vector3 targetWorldPos, double speed = 0.0, CancellationToken cancellationToken = default)
+        /// <param name="partName">子Part在cfg里的name</param>
+        /// <param name="parentPart">父Part</param>
+        /// <param name="localOffset">相对于父Part锚点的本地位置偏移</param>
+        /// <param name="localRot">相对于父Part的本地旋转</param>
+        /// 生成的Part实例，失败返回null</returns>
+        private Part CreateSubPart(string partName, Part parentPart, Vector3 localOffset, Quaternion localRot)
         {
-            if ( !TrySolveIK (targetWorldPos, out double[] angles) || angles == null )
-                return Task. FromResult (false);
+            // 1. 从KSP部件库找到子Part的配置
+            AvailablePart availPart = PartLoader.Instance.parts.Find(p => p.name == partName);
+            if (availPart == null) return null;
 
-            // angles 按每关节 (x,y,z) 存储
-            int expected = joints. Count * 3;
-            if ( angles. Length != expected )
-                return Task. FromResult (false);
+            // 2. 计算子Part的世界位置和旋转
+            Vector3 worldPos = parentPart.transform.TransformPoint(localOffset);
+            Quaternion worldRot = parentPart.transform.rotation * localRot;
 
-            for ( int i = 0 ; i < joints. Count ; i++ )
+            // 3. 实例化Part Prefab
+            GameObject partGo = Instantiate(availPart.partPrefab.gameObject, worldPos, worldRot);
+            Part newPart = partGo.GetComponent<Part>();
+            if (newPart == null)
             {
-                int baseIdx = i * 3;
-                joints[i]. targetEuler = new Vector3 (
-                    ( float )angles[baseIdx + 0],
-                    ( float )angles[baseIdx + 1],
-                    ( float )angles[baseIdx + 2]
-                );
+                Destroy(partGo);
+                return null;
             }
 
-            // 可在此处理 speed / duration 参数（例如将 maxAngularVelocity 调整为 speed），此处留空
-            return Task. FromResult (true);
+            // 4. 基础初始化
+            newPart.transform.parent = null; // 重要：不要成为父物体的 Transform 子节点，否则物理会出错
+            newPart.missionID = parentPart.missionID;
+            newPart.flagURL = parentPart.flagURL;
+            // 5. 缩放和父Part保持一致
+            newPart.transform.localScale = parentPart.transform.lossyScale;
+            // 6. 核心：将部件归属到当前飞船
+            // SetVessel 会触发 KSP 内部逻辑，自动将该部件加入 vessel.parts 列表
+            // 并在后续初始化中正确设置 localRoot
+            parentPart.vessel.parts.Add(newPart);
+            newPart.vessel = parentPart.vessel;
+            GameEvents.onVesselWasModified.Fire(vessel);
+            if (newPart.flightID == 0)
+            {
+                newPart.flightID = (uint)UnityEngine.Random.Range(1, int.MaxValue);
+            }
+
+            foreach (var child in newPart.Modules)
+            {
+                if (!child.isEnabled)
+                {
+                    child.OnStart(PartModule.StartState.None);
+                }
+            }
+            Debug.Log($"[机械臂] 成功生成子Part：{partName}");
+            return newPart;
         }
 
         /// <summary>
-        /// 快速同步移动（兼容旧接口）
+        /// 等待物理帧初始化后，创建关节、开启碰撞
         /// </summary>
-        public bool MoveToPosition (Vector3 targetWorldPos, double speed = 0.0)
+        private IEnumerator WaitAndInitPhysics()
         {
-            var t = MoveToPositionAsync (targetWorldPos, speed);
-            return t. Result;
+            int waitCount = 0;
+            int maxWaitFrames = 10; // 最多等待10个物理帧，防止死等
+            while (waitCount < maxWaitFrames)
+            {
+                yield return new WaitForFixedUpdate();
+                waitCount++;
+
+                if (upperArmPart?.Rigidbody != null && lowerArmPart?.Rigidbody != null)
+                {
+                    break;
+                }
+            }
+
+            if (upperArmPart?.Rigidbody == null || lowerArmPart?.Rigidbody == null)
+            {
+                Debug.LogError("[机械臂] 等待Rigidbody超时，物理初始化失败");
+                yield break;
+            }
+            // 1. 创建连接关节
+            // 大臂关节传入大臂的电机力
+            upperJoint = CreateRotationalJoint(part, upperArmPart, upperAngleLimit, jointBreakForce, jointBreakTorque, upperMotorForce);
+            // 小臂关节传入小臂的电机力
+            lowerJoint = CreateRotationalJoint(upperArmPart, lowerArmPart, lowerAngleLimit, jointBreakForce, jointBreakTorque, lowerMotorForce);
+
+
+            // 2. 开启机械臂内部Part之间的碰撞（KSP默认关闭同飞船Part碰撞，必须手动开启）
+            EnableCollisionBetweenParts(part, upperArmPart);
+            EnableCollisionBetweenParts(upperArmPart, lowerArmPart);
+            EnableCollisionBetweenParts(part, lowerArmPart);
+
+            isInitialized = true;
+            Debug.Log("[机械臂] 物理初始化完成");
+        }
+
+        /// <summary>
+        /// 创建旋转铰链关节（机械臂专用，仅允许绕X轴旋转，其他轴全部锁死）
+        /// </summary>
+        private ConfigurableJoint CreateRotationalJoint(Part parent, Part child, Vector2 angleLimit, float breakForce, float breakTorque,float motorForce)
+        {
+            Rigidbody parentRb = parent.Rigidbody;
+            Rigidbody childRb = child.Rigidbody;
+            if (parentRb == null || childRb == null) return null;
+
+            ConfigurableJoint joint = child.gameObject.AddComponent<ConfigurableJoint>();
+            joint.connectedBody = parentRb;
+
+            // ----- 基础关节设置 -----
+            joint.anchor = child.transform.InverseTransformPoint(parent.transform.position);
+            joint.connectedAnchor = Vector3.zero; // 连接点在父Part原点
+            joint.axis = Vector3.right; // 旋转轴为X轴（右方向），可根据你的模型修改为forward/up
+            joint.secondaryAxis = Vector3.up;
+
+            // 锁死所有平移自由度（机械臂关节不能移动，只能转动）
+            joint.xMotion = ConfigurableJointMotion.Locked;
+            joint.yMotion = ConfigurableJointMotion.Locked;
+            joint.zMotion = ConfigurableJointMotion.Locked;
+
+            // 锁死其他旋转自由度，仅X轴可旋转
+            joint.angularYMotion = ConfigurableJointMotion.Locked;
+            joint.angularZMotion = ConfigurableJointMotion.Locked;
+            joint.angularXMotion = ConfigurableJointMotion.Limited; // X轴受角度限制
+
+            // ----- 角度限制设置 -----
+            SoftJointLimit lowLimit = new SoftJointLimit();
+            lowLimit.limit = angleLimit.x;
+            lowLimit.bounciness = 0.2f; // 撞到限位的反弹力
+            lowLimit.contactDistance = 1f;
+            joint.lowAngularXLimit = lowLimit;
+
+            SoftJointLimit highLimit = new SoftJointLimit();
+            highLimit.limit = angleLimit.y;
+            highLimit.bounciness = 0.2f;
+            highLimit.contactDistance = 1f;
+            joint.highAngularXLimit = highLimit;
+
+            // ----- 稳定性设置（防止物理抖动错位）-----
+            joint.projectionMode = JointProjectionMode.PositionAndRotation;
+            joint.projectionDistance = 0.01f;
+            joint.projectionAngle = 1f;
+            joint.enablePreprocessing = false; // 关闭预处理减少关节断裂bug
+
+            // ----- 断裂力设置 -----
+            joint.breakForce = breakForce;
+            joint.breakTorque = breakTorque;
+
+            // ----- 初始化驱动参数 -----
+            JointDrive drive = new JointDrive();
+            drive.positionSpring = 200f;
+            drive.positionDamper = 20f;
+            drive.maximumForce = motorForce;
+            joint.angularXDrive = drive;
+            joint.targetAngularVelocity = Vector3.zero;
+
+            return joint;
+        }
+
+        /// <summary>
+        /// 开启两个Part之间的所有碰撞器碰撞
+        /// </summary>
+        private void EnableCollisionBetweenParts(Part a, Part b)
+        {
+            if (a == null || b == null) return;
+
+            Collider[] aCols = a.GetComponentsInChildren<Collider>(true);
+            Collider[] bCols = b.GetComponentsInChildren<Collider>(true);
+
+            foreach (Collider colA in aCols)
+            {
+                if (colA == null || !colA.gameObject.activeInHierarchy) continue;
+                foreach (Collider colB in bCols)
+                {
+                    if (colB == null || !colB.gameObject.activeInHierarchy) continue;
+                    if (colA != colB)
+                    {
+                        Physics.IgnoreCollision(colA, colB, false);
+                    }
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// 更新关节电机驱动，转到目标角度
+        /// </summary>
+        private void UpdateJointDrive(ConfigurableJoint joint, float targetAngle, float motorForce)
+        {
+            if (joint == null) return;
+
+            // 设置目标旋转（绕X轴旋转）
+            joint.targetRotation = Quaternion.Euler(targetAngle, 0, 0);
+
+            // 更新电机驱动力
+            JointDrive drive = joint.angularXDrive;
+            drive.maximumForce = motorForce;
+            joint.angularXDrive = drive;
+        }
+
+        // ==============================================
+        // 存档持久化逻辑
+        // ==============================================
+
+        /// <summary>
+        /// 读档时从飞船现有Part中恢复之前生成的大臂/小臂
+        /// </summary>
+        private bool RestoreSubPartsFromVessel()
+        {
+            if (upperArmFlightId == 0 || lowerArmFlightId == 0) return false;
+
+            // 遍历飞船所有Part，通过之前存的flightID找到子Part
+            foreach (Part p in vessel.parts)
+            {
+                if (p.flightID == upperArmFlightId) upperArmPart = p;
+                if (p.flightID == lowerArmFlightId) lowerArmPart = p;
+            }
+
+            if (upperArmPart != null && lowerArmPart != null)
+            {
+                // 找到大臂上的小臂锚点
+                lowerArmAnchor = upperArmPart.transform.Find("LowerArmAnchor");
+                if (lowerArmAnchor == null) lowerArmAnchor = upperArmPart.transform;
+
+                // 隐藏预览模型
+                Transform previewUpper = part.transform.Find("UpperArmModel");
+                Transform previewLower = part.transform.Find("LowerArmModel");
+                if (previewUpper != null) previewUpper.gameObject.SetActive(false);
+                if (previewLower != null) previewLower.gameObject.SetActive(false);
+
+                Debug.Log("[机械臂] 从存档恢复子Part成功");
+                return true;
+            }
+
+            // 恢复失败，重置ID
+            upperArmFlightId = 0;
+            lowerArmFlightId = 0;
+            return false;
         }
     }
 }
+
+
+//cfg中部分代码调用参考
+//MODULE
+//{
+//    name = ModuleSampleArm
+//    upperArmPartName = MechArm_UpperArm
+//    lowerArmPartName = MechArm_LowerArm
+//    upperArmOffset = 0，0.5，0
+//    upperAngleLimit = -90，90
+//    upperMotorForce = 15
+//    lowerArmOffset = 0，1.2，0
+//    lowerAngleLimit = -120，0
+//    lowerMotorForce = 10
+//    jointBreakForce = Infinity
+//    jointBreakTorque = Infinity
+//}
