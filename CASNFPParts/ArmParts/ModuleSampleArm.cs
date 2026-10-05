@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections;
+using System. Linq;
+using System. Diagnostics. Eventing. Reader;
 using System.Reflection;
 using UnityEngine;
 
@@ -11,8 +13,8 @@ namespace CASNFPParts.ArmParts
 {
     public class ModuleSampleArm : PartModule
     {
-        [KSPField] public string upperArmPartName = "MechArm_UpperArm"; // 大臂Part的cfg里的name
-        [KSPField] public string lowerArmPartName = "MechArm_LowerArm"; // 小臂Part的cfg里的name
+        [KSPField] public string upperArmPartName = "MechArm_Sample_UpperArm"; // 大臂Part的cfg里的name
+        [KSPField] public string lowerArmPartName = "MechArm_Sample_LowerArm"; // 小臂Part的cfg里的name
 
         // 大臂相对于基座锚点的位置偏移（本地坐标）
         [KSPField] public Vector3 upperArmOffset = new Vector3(0, 0.5f, 0);
@@ -63,12 +65,17 @@ namespace CASNFPParts.ArmParts
             if (!HighLogic.LoadedSceneIsFlight) return;
 
             // 找到主Part上预设的锚点
-            upperArmAnchor = part.transform.Find("UpperArmAnchor");
-            if (upperArmAnchor == null) upperArmAnchor = part.transform; // 找不到就用根节点兜底
+            upperArmAnchor = part.gameObject.GetChild("node1")?.transform;
+            if ( upperArmAnchor == null )
+            {
+                Debug. LogWarning ("[机械臂] 找不到大臂锚点：node1"); 
+                upperArmAnchor = part.gameObject.transform; // 找不到就用根节点兜底
+            }
+            
 
             // 隐藏主Part自带的大臂/小臂预览模型（避免和动态生成的模型重叠）
-            Transform previewUpper = part.transform.Find("UpperArmModel");
-            Transform previewLower = part.transform.Find("LowerArmModel");
+            Transform previewUpper = part. gameObject. GetChild ("node2")?.transform;
+            Transform previewLower = part.gameObject.GetChild("node3")?.transform;
             if (previewUpper != null) previewUpper.gameObject.SetActive(false);
             if (previewLower != null) previewLower.gameObject.SetActive(false);
 
@@ -90,7 +97,7 @@ namespace CASNFPParts.ArmParts
                     upperArmFlightId = upperArmPart.flightID; // 存ID用于存档
 
                     // 找到大臂上的小臂锚点
-                    lowerArmAnchor = upperArmPart.transform.Find("LowerArmAnchor");
+                    lowerArmAnchor = part. transform. Find ("node3"); //upperArmPart.transform.Find("LowerArmAnchor");
                     if (lowerArmAnchor == null) lowerArmAnchor = upperArmPart.transform;
 
                     // 再挂小臂（大臂→小臂）
@@ -110,8 +117,9 @@ namespace CASNFPParts.ArmParts
             }
             //处理Part销毁时的逻辑
             part.OnJustAboutToBeDestroyed += OnPartDestroy;
+            Debug. Log ("[机械臂] 动态生成子Part完成，等待物理初始化...");
             // 等待物理初始化完成后再创建关节（避免Rigidbody未生成导致报错）
-            StartCoroutine(WaitAndInitPhysics());
+            StartCoroutine (WaitAndInitPhysics());
         }
 
         /// <summary>
@@ -163,48 +171,64 @@ namespace CASNFPParts.ArmParts
         /// 生成的Part实例，失败返回null</returns>
         private Part CreateSubPart(string partName, Part parentPart, Vector3 localOffset, Quaternion localRot)
         {
+            partName = partName. Replace ("_", ".");
+
             // 1. 从KSP部件库找到子Part的配置
-            AvailablePart availPart = PartLoader.Instance.parts.Find(p => p.name == partName);
-            if (availPart == null) return null;
+            AvailablePart availPart = null;
+            foreach ( var item in PartLoader. Instance.loadedParts )
+            {
+                if ( item.name == partName )
+                {
+                    availPart = item;
+                    break;
+                }
+            }
+            if ( availPart == null )
+            {
+                Debug.LogError($"[机械臂] 未找到子Part配置：{partName}");
+                return null;
+            }
+            
 
             // 2. 计算子Part的世界位置和旋转
             Vector3 worldPos = parentPart.transform.TransformPoint(localOffset);
+            Debug.Log ($"[机械臂] 生成子Part {partName}，世界位置：{worldPos}");
             Quaternion worldRot = parentPart.transform.rotation * localRot;
+            Debug. Log ($"[机械臂] 生成子Part {partName}，世界旋转：{worldRot. eulerAngles}");
 
             // 3. 实例化Part Prefab
-            GameObject partGo = Instantiate(availPart.partPrefab.gameObject, worldPos, worldRot);
-            Part newPart = partGo.GetComponent<Part>();
-            if (newPart == null)
+            Part newPart = Instantiate (availPart. partPrefab, worldPos, worldRot);
+            // 4. 基础属性赋值
+            newPart. transform. parent = null;
+            newPart. missionID = parentPart. missionID;
+            newPart. flagURL = parentPart. flagURL;
+            newPart. transform. localScale = parentPart. transform. lossyScale;
+            newPart. flightID = newPart. flightID == 0 ? ( uint )UnityEngine. Random. Range (1, int. MaxValue) : newPart. flightID;
+            // 5. 【关键修复】完全走KSP原生部件注册流程，不手动Add进parts列表
+            newPart. InitializeModules ();
+            if ( newPart. rb == null )
             {
-                Destroy(partGo);
-                return null;
+                Debug. LogWarning ($"[机械臂] 子Part {partName} 的刚体是：null，尝试手动添加刚体");
+                Rigidbody rb = newPart. gameObject. AddComponent<Rigidbody> ();
+                rb. mass = newPart. mass;
             }
-
-            // 4. 基础初始化
-            newPart.transform.parent = null; // 重要：不要成为父物体的 Transform 子节点，否则物理会出错
-            newPart.missionID = parentPart.missionID;
-            newPart.flagURL = parentPart.flagURL;
-            // 5. 缩放和父Part保持一致
-            newPart.transform.localScale = parentPart.transform.lossyScale;
-            // 6. 核心：将部件归属到当前飞船
-            // SetVessel 会触发 KSP 内部逻辑，自动将该部件加入 vessel.parts 列表
-            // 并在后续初始化中正确设置 localRoot
-            parentPart.vessel.parts.Add(newPart);
-            newPart.vessel = parentPart.vessel;
-            GameEvents.onVesselWasModified.Fire(vessel);
-            if (newPart.flightID == 0)
+            parentPart. addChild (newPart);
+            if ( !vessel.Parts.Contains(newPart) )
             {
-                newPart.flightID = (uint)UnityEngine.Random.Range(1, int.MaxValue);
+                vessel. Parts. Add (newPart);
             }
-
-            foreach (var child in newPart.Modules)
+            newPart.gameObject.SetActive (true);
+            GameEvents. onVesselWasModified. Fire (parentPart. vessel);
+            // 7. 启动所有子模块
+            foreach ( PartModule module in newPart. Modules )
             {
-                if (!child.isEnabled)
+                if ( !module. isEnabled )
                 {
-                    child.OnStart(PartModule.StartState.None);
+                    module. OnStart (PartModule.StartState.PreLaunch);
                 }
             }
-            Debug.Log($"[机械臂] 成功生成子Part：{partName}");
+
+            Debug. Log ($"[机械臂] 部件初始化完成：{partName}");
             return newPart;
         }
 
@@ -213,6 +237,7 @@ namespace CASNFPParts.ArmParts
         /// </summary>
         private IEnumerator WaitAndInitPhysics()
         {
+            Debug. Log ("[机械臂] 等待物理初始化...");
             int waitCount = 0;
             int maxWaitFrames = 10; // 最多等待10个物理帧，防止死等
             while (waitCount < maxWaitFrames)
@@ -231,18 +256,18 @@ namespace CASNFPParts.ArmParts
                 Debug.LogError("[机械臂] 等待Rigidbody超时，物理初始化失败");
                 yield break;
             }
+            Debug. Log ("[机械臂] Rigidbody初始化完成，开始创建关节和开启碰撞");
             // 1. 创建连接关节
             // 大臂关节传入大臂的电机力
             upperJoint = CreateRotationalJoint(part, upperArmPart, upperAngleLimit, jointBreakForce, jointBreakTorque, upperMotorForce);
             // 小臂关节传入小臂的电机力
             lowerJoint = CreateRotationalJoint(upperArmPart, lowerArmPart, lowerAngleLimit, jointBreakForce, jointBreakTorque, lowerMotorForce);
 
-
+            Debug.Log ("[机械臂] 关节创建完成");
             // 2. 开启机械臂内部Part之间的碰撞（KSP默认关闭同飞船Part碰撞，必须手动开启）
-            EnableCollisionBetweenParts(part, upperArmPart);
+            EnableCollisionBetweenParts (part, upperArmPart);
             EnableCollisionBetweenParts(upperArmPart, lowerArmPart);
             EnableCollisionBetweenParts(part, lowerArmPart);
-
             isInitialized = true;
             Debug.Log("[机械臂] 物理初始化完成");
         }

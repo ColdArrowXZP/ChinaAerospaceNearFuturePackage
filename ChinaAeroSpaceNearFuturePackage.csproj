@@ -47,14 +47,6 @@
       <HintPath>D:\Steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\KSPAssets.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="KSPAssets.XmlSerializers">
-      <HintPath>..\..\..\steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\KSPAssets.XmlSerializers.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="KSPTrackIR">
-      <HintPath>..\..\..\steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\KSPTrackIR.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -65,10 +57,6 @@
     <Reference Include="System.Xml" />
     <Reference Include="UnityEngine">
       <HintPath>D:\Steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.AIModule">
-      <HintPath>..\..\..\steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.AIModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.AnimationModule">
@@ -99,20 +87,8 @@
       <HintPath>D:\Steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine.InputModule">
-      <HintPath>..\..\..\steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.InputModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.LocalizationModule">
-      <HintPath>..\..\..\steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.LocalizationModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="UnityEngine.ParticleSystemModule">
       <HintPath>D:\Steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine.Physics2DModule">
-      <HintPath>..\..\..\steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.Physics2DModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
