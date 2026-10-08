@@ -17,7 +17,7 @@ namespace CASNFPParts.ArmParts
         [KSPField] public string lowerArmPartName = "MechArm_Sample_LowerArm"; // 小臂Part的cfg里的name
 
         // 大臂相对于基座锚点的位置偏移（本地坐标）
-        [KSPField] public Vector3 upperArmOffset = new Vector3(0, 0.5f, 0);
+        [KSPField] public Vector3 upperArmOffset = new Vector3(-0.2303298f, 0, 0.24f);
         // 大臂初始旋转（本地欧拉角）
         [KSPField] public Vector3 upperArmRotation = Vector3.zero;
         // 大臂关节旋转范围（绕关节X轴，单位：度）
@@ -26,7 +26,7 @@ namespace CASNFPParts.ArmParts
         [KSPField] public float upperMotorForce = 10f;
 
         // 小臂相对于大臂锚点的位置偏移
-        [KSPField] public Vector3 lowerArmOffset = new Vector3(0, 1.2f, 0);
+        [KSPField] public Vector3 lowerArmOffset = new Vector3(0.1099544f, -2.145828f, 0);
         [KSPField] public Vector3 lowerArmRotation = Vector3.zero;
         [KSPField] public Vector2 lowerAngleLimit = new Vector2(-120f, 0f);
         [KSPField] public float lowerMotorForce = 8f;
@@ -65,10 +65,10 @@ namespace CASNFPParts.ArmParts
             if (!HighLogic.LoadedSceneIsFlight) return;
 
             // 找到主Part上预设的锚点
-            upperArmAnchor = part.gameObject.GetChild("node1")?.transform;
+            upperArmAnchor = part.gameObject.GetChild("node2")?.transform;
             if ( upperArmAnchor == null )
             {
-                Debug. LogWarning ("[机械臂] 找不到大臂锚点：node1"); 
+                Debug. LogWarning ("[机械臂] 找不到大臂锚点：node2"); 
                 upperArmAnchor = part.gameObject.transform; // 找不到就用根节点兜底
             }
             
@@ -115,8 +115,6 @@ namespace CASNFPParts.ArmParts
                     return;
                 }
             }
-            //处理Part销毁时的逻辑
-            part.OnJustAboutToBeDestroyed += OnPartDestroy;
             Debug. Log ("[机械臂] 动态生成子Part完成，等待物理初始化...");
             // 等待物理初始化完成后再创建关节（避免Rigidbody未生成导致报错）
             StartCoroutine (WaitAndInitPhysics());
@@ -141,22 +139,7 @@ namespace CASNFPParts.ArmParts
             UpdateJointDrive(lowerJoint, lowerTargetAngle, lowerMotorForce);
         }
 
-        /// <summary>
-        /// Part销毁时清理动态生成的子Part，避免残留垃圾
-        /// </summary>
-        public void OnPartDestroy()
-        {
-            if (HighLogic.LoadedSceneIsFlight)
-            {
-                if (upperArmPart != null) Destroy(upperArmPart.gameObject);
-                if (lowerArmPart != null) Destroy(lowerArmPart.gameObject);
-            }
-        }
-
-        public void OnDestroy() 
-        {
-            part.OnJustAboutToBeDestroyed -= OnPartDestroy;
-        }
+        
         // ==============================================
         // 核心逻辑方法
         // ==============================================
@@ -192,9 +175,7 @@ namespace CASNFPParts.ArmParts
 
             // 2. 计算子Part的世界位置和旋转
             Vector3 worldPos = parentPart.transform.TransformPoint(localOffset);
-            Debug.Log ($"[机械臂] 生成子Part {partName}，世界位置：{worldPos}");
             Quaternion worldRot = parentPart.transform.rotation * localRot;
-            Debug. Log ($"[机械臂] 生成子Part {partName}，世界旋转：{worldRot. eulerAngles}");
 
             // 3. 实例化Part Prefab
             Part newPart = Instantiate (availPart. partPrefab, worldPos, worldRot);
@@ -218,7 +199,6 @@ namespace CASNFPParts.ArmParts
                 vessel. Parts. Add (newPart);
             }
             newPart.gameObject.SetActive (true);
-            GameEvents. onVesselWasModified. Fire (parentPart. vessel);
             // 7. 启动所有子模块
             foreach ( PartModule module in newPart. Modules )
             {
