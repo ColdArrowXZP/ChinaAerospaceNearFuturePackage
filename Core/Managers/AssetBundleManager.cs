@@ -51,13 +51,30 @@ namespace ChinaAeroSpaceNearFuturePackage. Core. Managers
         }
         public void UnloadBundle (AssetBundle bundle)
         {
-            if ( bundle != null )
+            try
             {
-                bundle. Unload (true);
+                string key = bundle != null ? bundle.name : null;
+
+                if (bundle != null)
+                {
+                    try
+                    {           
+                        bundle.Unload(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        CASNFPLogger.Instance.LogWarning($"卸载资源包时发生异常: {ex.Message}");
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(key) && Instance._loadedBundles.ContainsKey(key))
+                {
+                    Instance._loadedBundles.Remove(key);
+                }
             }
-            if (Instance._loadedBundles.ContainsKey(bundle.name)) 
+            catch (Exception ex)
             {
-                Instance._loadedBundles.Remove(bundle.name);
+                CASNFPLogger.Instance.LogError($"UnloadBundle 出现未处理异常: {ex.Message}");
             }
         }
     }
