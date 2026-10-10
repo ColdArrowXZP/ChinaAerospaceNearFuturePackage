@@ -10,8 +10,10 @@ namespace CASNFPParts.ArmParts
 {
     public class ModuleSampleArm : PartModule
     {
+        [KSPField] public string bottomArmPartName = "MechArm_Sample_Bottom"; // 底座Part的cfg里的name
         [KSPField] public string upperArmPartName = "MechArm_Sample_UpperArm"; // 大臂Part的cfg里的name
         [KSPField] public string lowerArmPartName = "MechArm_Sample_LowerArm"; // 小臂Part的cfg里的name
+        [KSPField] public string effectArmPartName = "MechArm_Sample_Effector"; // 效果器Part的cfg里的name
 
         // 大臂相对于基座锚点的位置偏移（本地坐标）
         [KSPField] public Vector3 upperArmOffset = Vector3.zero;
