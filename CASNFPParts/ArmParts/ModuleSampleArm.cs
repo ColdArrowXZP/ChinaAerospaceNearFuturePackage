@@ -10,23 +10,22 @@ namespace CASNFPParts.ArmParts
 {
     public class ModuleSampleArm : PartModule
     {
-        [KSPField] public string bottomArmPartName = "MechArm_Sample_Bottom"; // 底座Part的cfg里的name
+        
         [KSPField] public string upperArmPartName = "MechArm_Sample_UpperArm"; // 大臂Part的cfg里的name
         [KSPField] public string lowerArmPartName = "MechArm_Sample_LowerArm"; // 小臂Part的cfg里的name
-        [KSPField] public string effectArmPartName = "MechArm_Sample_Effector"; // 效果器Part的cfg里的name
 
         // 大臂相对于基座锚点的位置偏移（本地坐标）
         [KSPField] public Vector3 upperArmOffset = Vector3.zero;
         // 大臂初始旋转（本地欧拉角）
-        [KSPField] public Vector3 upperArmRotation = Quaternion.identity.eulerAngles;
+        [KSPField] public Vector3 upperArmRotation = new Vector3(90f,0f,0f);
         // 大臂关节旋转范围（绕关节X轴，单位：度）
-        [KSPField] public Vector2 upperAngleLimit = new Vector2(-90f, 90f);
+        [KSPField] public Vector2 upperAngleLimit = new Vector2(0f, 180f);
         // 大臂关节电机驱动力
         [KSPField] public float upperMotorForce = 10f;
 
         // 小臂相对于大臂锚点的位置偏移
         [KSPField] public Vector3 lowerArmOffset = Vector3.zero;
-        [KSPField] public Vector3 lowerArmRotation = Vector3.zero;
+        [KSPField] public Vector3 lowerArmRotation = new Vector3 (90f, 0f, 0f);
         [KSPField] public Vector2 lowerAngleLimit = new Vector2(-180f, 0f);
         [KSPField] public float lowerMotorForce = 8f;
 
@@ -181,7 +180,7 @@ namespace CASNFPParts.ArmParts
 
             // 2. 计算子Part的世界位置和旋转
             Vector3 worldPos = anchorTransform. position;
-            Quaternion worldRot = anchorTransform. rotation;
+            Quaternion worldRot = anchorTransform. rotation*localRot;
 
             // 3. 实例化Part Prefab
             GameObject gO = Instantiate (availPart. partPrefab. gameObject, worldPos, worldRot);
@@ -196,7 +195,6 @@ namespace CASNFPParts.ArmParts
             // 5. 【关键修复】完全走KSP原生部件注册流程，不手动Add进parts列表
             newPart. InitializeModules ();
             newPart. SetupHighlighter ();
-            newPart. transform. SetPositionAndRotation (worldPos, worldRot);
             if ( newPart.gameObject.GetComponent<AudioSource> () == null )
             {
                 newPart.gameObject.AddComponent<AudioSource> ();
@@ -204,6 +202,7 @@ namespace CASNFPParts.ArmParts
             parentPart. addChild (newPart);
             vessel. Parts. Add (newPart);
             newPart. vessel = vessel;
+            newPart. transform. SetPositionAndRotation (worldPos, worldRot);
             gO.SetActive (true);
             Debug. Log ($"[机械臂] 部件初始化完成：{partName}");
             return newPart;
@@ -233,22 +232,25 @@ namespace CASNFPParts.ArmParts
                 Debug.LogError("[机械臂] 等待Rigidbody超时，物理初始化失败");
                 yield break;
             }
-            Debug. Log ("[机械臂] Rigidbody初始化完成，开始创建关节和开启碰撞");
-            Debug. Log ("newpartVessel=  "+upperArmPart.vessel.name);
-            upperArmPart. ResumeVelocity ();// 让大臂刚体与飞船保持一致的速度，避免生成时抖动
-            lowerArmPart. ResumeVelocity ();
-            
             // 1. 创建连接关节
             // 大臂关节传入大臂的电机力
-            upperJoint = CreateRotationalJoint(part, upperArmPart, upperArmAnchor, upperAngleLimit, jointBreakForce, jointBreakTorque, upperMotorForce);
+            upperJoint = CreateRotationalJoint(part, upperArmPart, upperArmAnchor,Quaternion.Euler(upperArmRotation), upperAngleLimit, jointBreakForce, jointBreakTorque, upperMotorForce);
             // 小臂关节传入小臂的电机力
-            lowerJoint = CreateRotationalJoint(upperArmPart, lowerArmPart, lowerArmAnchor, lowerAngleLimit, jointBreakForce, jointBreakTorque, lowerMotorForce);
-
-            Debug.Log ("[机械臂] 关节创建完成");
+            lowerJoint = CreateRotationalJoint(upperArmPart, lowerArmPart, lowerArmAnchor,Quaternion.Euler(lowerArmRotation), lowerAngleLimit, jointBreakForce, jointBreakTorque, lowerMotorForce);
+            Destroy (upperJoint);
+            Destroy (lowerJoint);
+            //等待一帧确保关节创建完成
+            yield return new WaitForFixedUpdate ();
+            part.Rigidbody.isKinematic = false; // 让基座刚体参与物理模拟
+            upperArmPart.Rigidbody. isKinematic = false; // 让大臂刚体参与物理模拟
+            lowerArmPart. Rigidbody. isKinematic = false; // 让小臂刚体参与物理模拟
+            upperArmPart. ResumeVelocity ();// 让大臂刚体与飞船保持一致的速度，避免生成时抖动
+            lowerArmPart. ResumeVelocity ();
+            Debug. Log ("[机械臂] 关节创建完成");
             // 2. 开启机械臂内部Part之间的碰撞（KSP默认关闭同飞船Part碰撞，必须手动开启）
-            EnableCollisionBetweenParts (part, upperArmPart);
-            EnableCollisionBetweenParts(upperArmPart, lowerArmPart);
-            EnableCollisionBetweenParts(part, lowerArmPart);
+            //EnableCollisionBetweenParts (part, upperArmPart);
+            //EnableCollisionBetweenParts(upperArmPart, lowerArmPart);
+            //EnableCollisionBetweenParts(part, lowerArmPart);
             isInitialized = true;
             Debug.Log("[机械臂] 物理初始化完成");
         }
@@ -256,10 +258,12 @@ namespace CASNFPParts.ArmParts
         /// <summary>
         /// 创建旋转铰链关节（机械臂专用，仅允许绕X轴旋转，其他轴全部锁死）
         /// </summary>
-        private ConfigurableJoint CreateRotationalJoint(Part parent, Part child,Transform AnchorTransform, Vector2 angleLimit, float breakForce, float breakTorque,float motorForce)
+        private ConfigurableJoint CreateRotationalJoint(Part parent, Part child,Transform AnchorTransform,Quaternion localRot, Vector2 angleLimit, float breakForce, float breakTorque,float motorForce)
         {
             Rigidbody parentRb = parent.Rigidbody;
+            parentRb. isKinematic = true;
             Rigidbody childRb = child.Rigidbody;
+            childRb. isKinematic = true;
             if (parentRb == null || childRb == null) return null;
             ConfigurableJoint joint = child. gameObject. AddComponent<ConfigurableJoint> ();
             joint. connectedBody = parentRb;
@@ -269,7 +273,7 @@ namespace CASNFPParts.ArmParts
             joint. connectedAnchor = parent. transform. InverseTransformPoint (worldAnchor);
 
             // ----- 子关节锚点位置设置 -----
-            child.transform.rotation = AnchorTransform. rotation; // 先对齐旋转，确保锚点方向正确
+            child.transform.rotation = AnchorTransform. rotation * localRot; // 先对齐旋转，确保锚点方向正确
             joint. anchor = Vector3.zero;
             joint. axis = child. transform. InverseTransformDirection (AnchorTransform. right);
             joint. secondaryAxis = child. transform. InverseTransformDirection (AnchorTransform. up);
@@ -314,7 +318,7 @@ namespace CASNFPParts.ArmParts
             drive. maximumForce = motorForce;
             joint. angularXDrive = drive;
             joint. targetAngularVelocity = Vector3. zero;
-
+            
             return joint;
         }
 
