@@ -55,76 +55,76 @@ namespace CASNFPParts.ArmParts
         // ==============================================
         // 生命周期方法
         // ==============================================
-        public override void OnStart(StartState state)
+        public override void OnStartFinished (StartState state)
         {
-            base.OnStart(state);
-            
             // 仅在飞行场景执行动态生成逻辑，编辑器场景保留预览模型
-            if (!HighLogic.LoadedSceneIsFlight) return;
-
-            // 找到主Part上预设的锚点（大臂锚点在基座上， 小臂锚点在大臂上，稍后从大臂Part上查找）
-            upperArmAnchor = part.gameObject.GetChild("node2")?.transform;
-            if ( upperArmAnchor == null )
-            {
-                Debug. LogWarning ("[机械臂] 找不到大臂锚点：node2");
-                upperArmAnchor = part. gameObject. transform; // 找不到就用根节点兜底
-            }
-            else
-            {
-                upperArmAnchor.gameObject.SetActive(false);
-            }
+            if ( !HighLogic. LoadedSceneIsFlight )
+                return;
+            Debug. Log ("为了观察onstartfinished的执行时机");
+            upperArmPart = null;
             // lowerArmAnchor 将在大臂实例化后从 upperArmPart 上查找，这里先留空
             lowerArmAnchor = null;
             // 尝试从现有Vessel中恢复已生成的子Part（读档场景）
-            bool restoredSuccess = RestoreSubPartsFromVessel();
+            bool restoredSuccess = RestoreSubPartsFromVessel ();
 
-            if (!restoredSuccess)
+            if ( !restoredSuccess )
             {
                 // 第一次加载，动态生成子Part
                 try
                 {
                     // 先挂大臂（基座→大臂）
-                    upperArmPart = CreateSubPart(upperArmPartName, part, upperArmAnchor,upperArmOffset, Quaternion.Euler(upperArmRotation));
-                    if (upperArmPart == null)
+                    // 找到主Part上预设的锚点（大臂锚点在基座上， 小臂锚点在大臂上，稍后从大臂Part上查找）
+                    upperArmAnchor = part. gameObject. GetChild ("node2")?.transform;
+                    if ( upperArmAnchor == null )
                     {
-                        Debug.LogError($"[机械臂] 找不到大臂Part配置：{upperArmPartName}");
-                        return;
-                    }
-                    upperArmFlightId = upperArmPart.flightID; // 存ID用于存档
-                    // 找到大臂上的小臂锚点（复制大臂的查找逻辑）
-                    Transform lowerAnchorOnUpper = upperArmPart.gameObject.GetChild("node3")?.transform;
-                    if (lowerAnchorOnUpper == null)
-                    {
-                        Debug.LogWarning("[机械臂] 在大臂模型上找不到小臂锚点：node3，回退到大臂根节点");
-                        lowerAnchorOnUpper = upperArmPart.transform;
+                        Debug. LogWarning ("[机械臂] 找不到大臂锚点：node2");
+                        upperArmAnchor = part. gameObject. transform; // 找不到就用根节点兜底
                     }
                     else
                     {
-                        lowerAnchorOnUpper.gameObject.SetActive(false);
+                        upperArmAnchor. gameObject. SetActive (false);
+                    }
+                    upperArmPart = CreateSubPart (upperArmPartName, part, upperArmAnchor, upperArmOffset, Quaternion. Euler (upperArmRotation));
+                    if ( upperArmPart == null )
+                    {
+                        Debug. LogError ($"[机械臂] 找不到大臂Part配置：{upperArmPartName}");
+                        return;
+                    }
+                    upperArmFlightId = upperArmPart. flightID; // 存ID用于存档
+                                                               // 找到大臂上的小臂锚点（复制大臂的查找逻辑）
+                    Transform lowerAnchorOnUpper = upperArmPart. gameObject. GetChild ("node3")?.transform;
+                    if ( lowerAnchorOnUpper == null )
+                    {
+                        Debug. LogWarning ("[机械臂] 在大臂模型上找不到小臂锚点：node3，回退到大臂根节点");
+                        lowerAnchorOnUpper = upperArmPart. transform;
+                    }
+                    else
+                    {
+                        lowerAnchorOnUpper. gameObject. SetActive (false);
                     }
 
                     // 保存为字段以供后续创建关节使用
                     lowerArmAnchor = lowerAnchorOnUpper;
 
                     // 再挂小臂（大臂→小臂）
-                    lowerArmPart = CreateSubPart(lowerArmPartName, upperArmPart, lowerArmAnchor, lowerArmOffset, Quaternion.Euler(lowerArmRotation));
-                    if (lowerArmPart == null)
+                    lowerArmPart = CreateSubPart (lowerArmPartName, upperArmPart, lowerArmAnchor, lowerArmOffset, Quaternion. Euler (lowerArmRotation));
+                    if ( lowerArmPart == null )
                     {
-                        Debug.LogError($"[机械臂] 找不到小臂Part配置：{lowerArmPartName}");
+                        Debug. LogError ($"[机械臂] 找不到小臂Part配置：{lowerArmPartName}");
                         return;
                     }
-                    lowerArmFlightId = lowerArmPart.flightID;
+                    lowerArmFlightId = lowerArmPart. flightID;
                 }
-                catch (Exception e)
+                catch ( Exception e )
                 {
-                    Debug.LogError($"[机械臂] 生成子Part失败：{e.Message}\n{e.StackTrace}");
+                    Debug. LogError ($"[机械臂] 生成子Part失败：{e. Message}\n{e. StackTrace}");
                     return;
                 }
             }
+            base. OnStartFinished (state);
             // 等待物理初始化完成后再创建关节（避免Rigidbody未生成导致报错）
-            StartCoroutine (WaitAndInitPhysics());
+            StartCoroutine (WaitAndInitPhysics ());
         }
-
         /// <summary>
         /// 固定物理帧更新：处理机械臂驱动和输入
         /// </summary>
@@ -134,17 +134,45 @@ namespace CASNFPParts.ArmParts
 
             // ===== 基础输入控制示例（可以替换成你自己的控制逻辑）=====
             // I/K控制大臂上下，O/L控制小臂上下
-            if (Input.GetKey(KeyCode.I)) upperTargetAngle = Mathf.Clamp(upperTargetAngle + 1f, upperAngleLimit.x, upperAngleLimit.y);
-            if (Input.GetKey(KeyCode.K)) upperTargetAngle = Mathf.Clamp(upperTargetAngle - 1f, upperAngleLimit.x, upperAngleLimit.y);
-            if (Input.GetKey(KeyCode.O)) lowerTargetAngle = Mathf.Clamp(lowerTargetAngle + 1f, lowerAngleLimit.x, lowerAngleLimit.y);
-            if (Input.GetKey(KeyCode.L)) lowerTargetAngle = Mathf.Clamp(lowerTargetAngle - 1f, lowerAngleLimit.x, lowerAngleLimit.y);
+            if (Input.GetKey(KeyCode.I)) {
+                upperTargetAngle = Mathf. Clamp (upperTargetAngle + 1f, upperAngleLimit. x, upperAngleLimit. y);
+                CheckAndSet (upperJoint);
+            }
+            if (Input.GetKey(KeyCode.K)) {
+                upperTargetAngle = Mathf.Clamp(upperTargetAngle - 1f, upperAngleLimit.x, upperAngleLimit.y);
+                CheckAndSet (upperJoint);
+            }
+            if (Input.GetKey(KeyCode.O)) {
+                lowerTargetAngle = Mathf.Clamp(lowerTargetAngle + 1f, lowerAngleLimit.x, lowerAngleLimit.y);
+                CheckAndSet (lowerJoint);
+            }
+            if (Input.GetKey(KeyCode.L)) {
+                lowerTargetAngle = Mathf.Clamp(lowerTargetAngle - 1f, lowerAngleLimit.x, lowerAngleLimit.y);
+                CheckAndSet (lowerJoint);
+            }
 
             // 更新关节驱动，让机械臂转到目标角度
             UpdateJointDrive(upperJoint, upperTargetAngle, upperMotorForce);
             UpdateJointDrive(lowerJoint, lowerTargetAngle, lowerMotorForce);
         }
 
-        
+        private void CheckAndSet (ConfigurableJoint joint)
+        {
+            if ( joint == null )
+                return;
+            if ( joint. angularXMotion != ConfigurableJointMotion. Limited )
+            {
+                joint. angularXMotion = ConfigurableJointMotion. Limited;
+            }
+            if ( joint.connectedBody.isKinematic )
+            {
+                joint. connectedBody. isKinematic = false;
+            }
+            if ( joint. gameObject. GetComponent<Rigidbody> (). isKinematic )
+            {
+                joint. gameObject. GetComponent<Rigidbody> (). isKinematic = false;
+            }
+        }
         // ==============================================
         // 核心逻辑方法
         // ==============================================
@@ -157,7 +185,7 @@ namespace CASNFPParts.ArmParts
         /// <param name="localOffset">相对于父Part锚点的本地位置偏移</param>
         /// <param name="localRot">相对于父Part的本地旋转</param>
         /// 生成的Part实例，失败返回null</returns>
-        private Part CreateSubPart(string partName, Part parentPart,Transform anchorTransform, Vector3 localOffset, Quaternion localRot)
+        private Part CreateSubPart(string partName, Part parentPart,Transform AnchorTransform, Vector3 localOffset, Quaternion localRot)
         {
             partName = partName. Replace ("_", ".");
 
@@ -176,18 +204,16 @@ namespace CASNFPParts.ArmParts
                 Debug.LogError($"[机械臂] 未找到子Part配置：{partName}");
                 return null;
             }
-
-
             // 2. 计算子Part的世界位置和旋转
-            Vector3 worldPos = anchorTransform. position;
-            Quaternion worldRot = anchorTransform. rotation*localRot;
+            Vector3 worldPos = AnchorTransform. position;
+            Quaternion worldRot = AnchorTransform. rotation*localRot;
 
             // 3. 实例化Part Prefab
             GameObject gO = Instantiate (availPart. partPrefab. gameObject, worldPos, worldRot);
             gO. SetActive (false);
             Part newPart = gO.GetComponent<Part> ();
             // 4. 基础属性赋值
-            newPart.gameObject. transform. parent = null;
+            newPart. setParent ();
             newPart. missionID = parentPart. missionID;
             newPart. flagURL = parentPart. flagURL;
             newPart. transform. localScale = parentPart. transform. lossyScale;
@@ -203,7 +229,7 @@ namespace CASNFPParts.ArmParts
             vessel. Parts. Add (newPart);
             newPart. vessel = vessel;
             gO.SetActive (true);
-            Debug. Log ($"[机械臂] 部件初始化完成：{partName}位置在"+ $"{ worldPos}角度是"+$"{worldRot}");
+            Debug. Log ($"[机械臂] 部件初始化完成：{partName}位置在"+ $"{newPart.transform.position}角度是"+$"{newPart.transform.rotation}");
             return newPart;
         }
 
@@ -225,7 +251,6 @@ namespace CASNFPParts.ArmParts
                     break;
                 }
             }
-
             if (upperArmPart?.Rigidbody == null || lowerArmPart?.Rigidbody == null)
             {
                 Debug.LogError("[机械臂] 等待Rigidbody超时，物理初始化失败");
@@ -236,51 +261,37 @@ namespace CASNFPParts.ArmParts
             upperJoint = CreateRotationalJoint(part, upperArmPart, upperArmAnchor,Quaternion.Euler(upperArmRotation), upperAngleLimit, jointBreakForce, jointBreakTorque, upperMotorForce);
             // 小臂关节传入小臂的电机力
             lowerJoint = CreateRotationalJoint(upperArmPart, lowerArmPart, lowerArmAnchor,Quaternion.Euler(lowerArmRotation), lowerAngleLimit, jointBreakForce, jointBreakTorque, lowerMotorForce);
-            
-            //等待一帧确保关节创建完成
-            yield return new WaitForFixedUpdate ();
-            part.Rigidbody.isKinematic = false; // 让基座刚体参与物理模拟
-            upperArmPart.Rigidbody. isKinematic = false; // 让大臂刚体参与物理模拟
-            lowerArmPart. Rigidbody. isKinematic = false; // 让小臂刚体参与物理模拟
-            //upperArmPart. ResumeVelocity ();// 让大臂刚体与飞船保持一致的速度，避免生成时抖动
-            //lowerArmPart. ResumeVelocity ();
             Debug. Log ("[机械臂] 关节创建完成");
-            // 2. 开启机械臂内部Part之间的碰撞（KSP默认关闭同飞船Part碰撞，必须手动开启）
-            //EnableCollisionBetweenParts (part, upperArmPart);
-            //EnableCollisionBetweenParts(upperArmPart, lowerArmPart);
-            //EnableCollisionBetweenParts(part, lowerArmPart);
             isInitialized = true;
             Debug.Log("[机械臂] 物理初始化完成");
         }
-
+       
         /// <summary>
         /// 创建旋转铰链关节（机械臂专用，仅允许绕X轴旋转，其他轴全部锁死）
         /// </summary>
         private ConfigurableJoint CreateRotationalJoint(Part parent, Part child,Transform AnchorTransform,Quaternion localRot, Vector2 angleLimit, float breakForce, float breakTorque,float motorForce)
         {
-            //把child的刚体设置为不参与物理计算
-            child.transform.SetPositionAndRotation(AnchorTransform.position,AnchorTransform.rotation*localRot);
-            Debug.Log($"[机械臂]关节设置位置角度后{child.gameObject.name}" + $"{child.transform.position}" + $"{child.transform.rotation}");
             Rigidbody parentRb = parent.Rigidbody;
-            parentRb. isKinematic = true;
             Rigidbody childRb = child.Rigidbody;
-            Debug.Log($"[机械臂]关节设置后刚体的位置角度{child.gameObject.name}" + $"{child.transform.position}" + $"{child.transform.rotation}");
-            childRb. isKinematic = true;
             if (parentRb == null || childRb == null) return null;
+            parentRb. isKinematic = true;
+            childRb. isKinematic = true;
+            Debug. Log (child.transform.position + " " + child.transform.rotation);
+            child.transform.SetPositionAndRotation(AnchorTransform.position,AnchorTransform.rotation*localRot);
+            Debug. Log (child. transform. position + " " + child. transform. rotation);
+            //计算父子刚体的相对旋转
+            Quaternion relativeRotation = Quaternion. Inverse (parentRb. rotation) * childRb. rotation;
             ConfigurableJoint joint = child. gameObject. AddComponent<ConfigurableJoint> ();
             joint. connectedBody = parentRb;
             joint.autoConfigureConnectedAnchor = false;
             // ---- 父关节锚点位置设置（世界坐标转本地坐标） -----
-            Vector3 worldAnchor = AnchorTransform. position;
-            joint. connectedAnchor = parent. transform. InverseTransformPoint (worldAnchor);
+            joint. connectedAnchor = parent. transform. InverseTransformPoint (AnchorTransform. position);
 
             // ----- 子关节锚点位置设置 -----
-            child.transform.rotation = AnchorTransform. rotation * localRot; // 先对齐旋转，确保锚点方向正确
-            joint. anchor = Vector3.zero;
+            //child.transform.rotation = AnchorTransform. rotation * localRot; // 先对齐旋转，确保锚点方向正确
+            joint. anchor = child. transform. InverseTransformPoint (AnchorTransform. position);
             joint. axis = child. transform. InverseTransformDirection (AnchorTransform. right);
             joint. secondaryAxis = child. transform. InverseTransformDirection (AnchorTransform. up);
-            Debug.Log($"[机械臂]关节{joint.gameObject.name}" + $"{joint.transform.position}" +$"{joint.transform.rotation}");
-            Debug.Log($"[机械臂]子关节锚点{joint.anchor}" + $"父关节锚点{joint.connectedAnchor}");
             // 锁死所有平移自由度（机械臂关节不能移动，只能转动）
             joint. xMotion = ConfigurableJointMotion. Locked;
             joint. yMotion = ConfigurableJointMotion. Locked;
@@ -289,7 +300,7 @@ namespace CASNFPParts.ArmParts
             // 锁死其他旋转自由度，仅X轴可旋转
             joint. angularYMotion = ConfigurableJointMotion. Locked;
             joint. angularZMotion = ConfigurableJointMotion. Locked;
-            joint. angularXMotion = ConfigurableJointMotion. Limited; // X轴受角度限制
+            joint. angularXMotion = ConfigurableJointMotion.Locked; // X轴受角度限制
 
             // ----- 角度限制设置 -----
             SoftJointLimit lowLimit = new SoftJointLimit ();
@@ -320,34 +331,34 @@ namespace CASNFPParts.ArmParts
             drive. positionDamper = 20f;
             drive. maximumForce = motorForce;
             joint. angularXDrive = drive;
-            //joint. targetAngularVelocity = Vector3. zero;
-            
+            joint. targetRotation = relativeRotation; // 设置初始旋转为父子相对旋转，避免生成时抖动
+            joint. targetAngularVelocity = Vector3. zero;
             return joint;
         }
 
-        /// <summary>
-        /// 开启两个Part之间的所有碰撞器碰撞
-        /// </summary>
-        private void EnableCollisionBetweenParts(Part a, Part b)
-        {
-            if (a == null || b == null) return;
+        ///// <summary>
+        ///// 开启两个Part之间的所有碰撞器碰撞
+        ///// </summary>
+        //private void EnableCollisionBetweenParts(Part a, Part b)
+        //{
+        //    if (a == null || b == null) return;
 
-            Collider[] aCols = a.GetComponentsInChildren<Collider>(true);
-            Collider[] bCols = b.GetComponentsInChildren<Collider>(true);
+        //    Collider[] aCols = a.GetComponentsInChildren<Collider>(true);
+        //    Collider[] bCols = b.GetComponentsInChildren<Collider>(true);
 
-            foreach (Collider colA in aCols)
-            {
-                if (colA == null || !colA.gameObject.activeInHierarchy) continue;
-                foreach (Collider colB in bCols)
-                {
-                    if (colB == null || !colB.gameObject.activeInHierarchy) continue;
-                    if (colA != colB)
-                    {
-                        Physics.IgnoreCollision(colA, colB, false);
-                    }
-                }
-            }
-        }
+        //    foreach (Collider colA in aCols)
+        //    {
+        //        if (colA == null || !colA.gameObject.activeInHierarchy) continue;
+        //        foreach (Collider colB in bCols)
+        //        {
+        //            if (colB == null || !colB.gameObject.activeInHierarchy) continue;
+        //            if (colA != colB)
+        //            {
+        //                Physics.IgnoreCollision(colA, colB, false);
+        //            }
+        //        }
+        //    }
+        //}
 
 
         /// <summary>
