@@ -129,7 +129,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CASNFPParts\ArmParts\ModuleSampleArm.cs" />
+    <Compile Include="CASNFPParts\ArmParts\ArmType.cs" />
+    <Compile Include="CASNFPParts\ArmParts\BaseManipulator.cs" />
+    <Compile Include="CASNFPParts\ArmParts\IManipulatorServo.cs" />
+    <Compile Include="CASNFPParts\ArmParts\ModuleRoboticArmForCASNFP.cs" />
+    <Compile Include="CASNFPParts\ArmParts\SaveJointInfo.cs" />
     <Compile Include="Core\Interfaces\IAssetBundleLoader.cs" />
     <Compile Include="Core\Interfaces\IConfigManager.cs" />
     <Compile Include="Core\Managers\AssetBundleManager.cs" />
