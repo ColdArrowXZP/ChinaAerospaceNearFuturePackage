@@ -20,7 +20,6 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         public float breakForce;
         public float targetAngle;
         public float startAngle;
-        public bool jointIsLocked;
         public float currentAngle;
         public float rotaSpeed;
     }
