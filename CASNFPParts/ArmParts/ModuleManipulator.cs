@@ -32,31 +32,28 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         public string jointsPartArray= string.Empty;
         [KSPField(isPersistant = true)]
         public bool isJointUnlocked = true;
-        [KSPField]
-        public string bottomNodeName = "bottom";
-        [KSPField]
-        public string workNodeName = "workDrill";
+        [KSPField (isPersistant = true)]
+        public int armTypeIndex = 0;
+        //[KSPField]
+        //public string bottomNodeName = "bottom";
+        //[KSPField]
+        //public string workNodeName = "workDrill";
         protected SaveJointInfo bottomJoint;
         protected SaveJointInfo topJoint;
+        /// 各关节 Transform 缓存，避免每帧 GetChild</summary>
+        protected Transform[] jointTransforms;
+        /// 末端执行器在关节数组中的索引（第4个关节，不参与 IK 计算）</summary>
+        protected int endEffectorIndex = 3;
+        public Vector3 effectorAxisLocal = Vector3.up;
         public SaveJointInfo[] jointsSaved;
         protected ConfigNode thisConfigNode;
         protected UI_Toggle toggleLock;
         protected UI_Toggle toggle;
         private PopupDialog dialog;
         protected bool startMoving;
-        #region 着色渲染参数
-        private LineRenderer _lineRenderer;
-        private float lineWidth = 0.1f;
-        private int segments = 128;
-        private Color boundaryColor = Color. green;
-        private Color fillColor = new Color (0f, 1f, 0f, 0.2f);
-        #endregion
-        #region 缓存边界区域坐标点
-        private readonly List<Vector3> _outerBoundary = new List<Vector3> ();//外边界
-        private readonly List<Vector3> _innerBoundary = new List<Vector3> ();//内边界
-        private readonly List<Vector3> _allBoundaryPoints = new List<Vector3> ();//所有边界点
-        public float groundDistance = 0f;
-        #endregion
+        private bool isWaitForTargetPoint = false;
+        private ArmType armType;
+        private Vector3 targetPoint;
         public override void OnAwake ()
         {
             base. OnAwake ();
@@ -86,11 +83,14 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         public override void OnStart (StartState state)
         {
             base. OnStart (state);
-            if ( HighLogic.LoadedSceneIsFlight )
+            armType = CheckArmType ();
+            // 缓存关节 Transform 引用
+            jointTransforms = new Transform[jointsSaved. Length];
+            for ( int i = 0 ; i < jointsSaved. Length ; i++ )
             {
-                InitializeComponents ();
+                jointTransforms[i] = part. gameObject. GetChild (jointsSaved[i]. jointTransformName). transform;
             }
-            
+            endEffectorIndex = jointsSaved. Length - 1; // 第4个关节即末端执行器
             GameEvents. onPartActionUIDismiss. Add (OnPartActionUIDismiss);
             GameEvents. onPartActionUIShown. Add (OnPartActionUIShown);
             for ( int i = 0 ; i < jointsSaved. Length ; i++ )//设置关节初始位置。
@@ -98,6 +98,24 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 part. gameObject. GetChild (jointsSaved[i]. jointTransformName). transform. localRotation = Quaternion. AngleAxis (jointsSaved[i]. currentAngle, jointsSaved[i]. axis);
             }
         }
+
+        private ArmType CheckArmType ()
+        {
+            switch(armTypeIndex)
+            {
+                case 0:
+                    return ArmType. Sampling;
+                case 1:
+                    return ArmType. Grasping;
+                case 2:
+                    return ArmType. Crawling;
+                case 3:
+                    return ArmType.Connecting;
+                default:
+                    throw new  System. Exception ("未知的机械臂类型，请检查配置文件");
+            }
+        }
+
         public override void OnSave (ConfigNode node)
         {
             base. OnSave (node);
@@ -209,14 +227,6 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 toggle. onFieldChanged = null;
                 toggle = null;
             }
-
-            // 4. 清理渲染组件引用（如果它们是被动态添加的）
-            // 注意：如果这些组件是 Part 的一部分，不要 Destroy 它们，只需置空引用
-            if ( _lineRenderer != null )
-            {
-                _lineRenderer = null;
-            }
-             
         }
 
         public override void OnUpdate ()
@@ -224,6 +234,11 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             base. OnUpdate ();
             if ( !IsJointUnlocked () )
             {
+                return;
+            }
+            if (isWaitForTargetPoint)
+            {
+                SetTragetPoint();
                 return;
             }
             if (startMoving)
@@ -238,6 +253,196 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                     startMoving = false;
                 }
             }
+        }
+
+        protected virtual void SetTragetPoint ()
+        {
+            //选择目标点。
+            if (targetPoint == null)
+            {
+                targetPoint = new Vector3 (0, 0, 0);
+            }
+            if ( armType == ArmType.Sampling )
+            {
+                SetTargetWithSampling ();
+            }
+            if ( armType == ArmType.Grasping)
+            {
+                SetTargetWithGrasping();
+            }
+            if ( armType == ArmType.Crawling )
+            {
+                SetTargetWithGrasping ();
+            }
+            if ( armType == ArmType.Connecting)
+            {
+                SetTargetWithGrasping ();
+            }
+        }
+
+        private void SetTargetWithGrasping ()
+        {
+            //其他类型机械臂获取目标点
+            return;
+        }
+
+        private void SetTargetWithSampling ()
+        {
+            if ( !isWaitForTargetPoint )
+                return;
+
+            if ( Input. GetMouseButtonDown (0) ) // 左键点击
+            {
+                Ray ray = FlightGlobals. fetch. mainCameraRef. ScreenPointToRay (Input. mousePosition);
+                RaycastHit hit;
+
+                // 创建一个只包含地形层的层掩码
+                int terrainLayer = LayerMask. NameToLayer ("LocalScenery");
+                if ( terrainLayer < 0 )
+                    terrainLayer = 15;
+                int terrainMask = 1 << terrainLayer;
+
+                if ( !Physics. Raycast (ray, out hit, Mathf. Infinity, terrainMask) )
+                {
+                    ScreenMessages. PostScreenMessage ("未选中有效月面点，请重新点击地形", 3f, ScreenMessageStyle. UPPER_CENTER);
+                    return;
+                }
+
+                // 获取点击点的世界坐标
+                Vector3 hitPoint = hit. point;
+                Vector3  movePoint = hitPoint + hit.normal.normalized * 0.1f;
+                //=======根据语义，这里应该调用机械臂的 IK 计算函数，请帮我实现这里的代码=======
+                float[] targetAngle = new float[jointsSaved. Length];
+                for ( int i = 0 ; i < jointsSaved. Length ; i++ ) // 默认保持当前角度，第4关节不动
+                    targetAngle[i] = jointsSaved[i]. currentAngle;
+
+                if ( SolveIKToTarget (movePoint,hit.normal, out float[] solvedAngles) )
+                {
+                    targetAngle = solvedAngles;
+                    isWaitForTargetPoint = false;
+                    ScreenMessages. PostScreenMessage ("目标点已设置", 3f, ScreenMessageStyle. UPPER_CENTER);
+                }
+                else
+                {
+                    targetAngle = solvedAngles;
+                    isWaitForTargetPoint = false;
+                    ScreenMessages. PostScreenMessage ("目标点超出可达范围，已移动到最近位置", 4f, ScreenMessageStyle. UPPER_CENTER);
+                }
+
+                for ( int i = 0 ; i < jointsSaved. Length ; i++ )
+                {
+                    jointsSaved[i]. targetAngle = targetAngle[i];
+                }
+                startMoving = true;
+            }
+        }
+
+        /// 
+        /// 数值逆运动学求解：前3个关节使末端执行器到达目标点；
+        /// 收敛后再解算第4关节，使末端执行器参考轴与月面平行。
+        /// 第4个关节不参与位置计算。全程使用关节自身的旋转轴与父级坐标系。
+        /// </summary>
+        /// <param name="targetWorldPos">目标点世界坐标</param>
+        /// <param name="targetNormal">目标点的月面法线（射线命中点的法线）</param>
+        /// <param name="targetAngles">输出：各关节目标角度（度）</param>
+        /// 是否成功收敛（末端距目标点 1cm 以内）</returns>
+        protected bool SolveIKToTarget (Vector3 targetWorldPos, Vector3 targetNormal, out float[] targetAngles)
+        {
+            targetAngles = null;
+            if ( jointTransforms == null || jointsSaved == null || jointsSaved. Length < 2 )
+                return false;
+
+            int activeCount = endEffectorIndex; // 参与位置解算的关节（0 ~ activeCount-1），第4关节不参与
+            const int maxIter = 40;
+            const float tolerance = 0.0005f; // 0.5mm 收敛阈值
+
+            // 以当前实际角度作为迭代初值；第4个关节保持不变
+            float[] angles = new float[jointsSaved. Length];
+            for ( int i = 0 ; i < jointsSaved. Length ; i++ )
+                angles[i] = jointsSaved[i]. currentAngle;
+
+            // 备份当前姿态，迭代结束后恢复（迭代只用于计算，不产生视觉跳变）
+            Quaternion[] backup = new Quaternion[jointsSaved. Length];
+            for ( int i = 0 ; i < jointsSaved. Length ; i++ )
+                backup[i] = jointTransforms[i]. localRotation;
+
+            // ===== 位置迭代：仅前3个关节，第4个关节保持 currentAngle 不动 =====
+            for ( int iter = 0 ; iter < maxIter ; iter++ )
+            {
+                for ( int i = activeCount - 1 ; i >= 0 ; i-- )
+                {
+                    Vector3 endPos = jointTransforms[endEffectorIndex]. position;
+                    if ( ( endPos - targetWorldPos ). sqrMagnitude < tolerance * tolerance )
+                        break;
+
+                    Vector3 jointPos = jointTransforms[i]. position;
+
+                    // 关节在世界中的旋转轴 = 父级坐标系旋转 * 关节自身轴向
+                    Vector3 axisWorld = jointTransforms[i]. parent != null
+                        ? jointTransforms[i]. parent. rotation * jointsSaved[i]. axis
+                        : jointsSaved[i]. axis;
+
+                    // 投影到垂直于旋转轴的平面，求需要补偿的角度
+                    Vector3 toEnd = Vector3. ProjectOnPlane (endPos - jointPos, axisWorld);
+                    Vector3 toTarget = Vector3. ProjectOnPlane (targetWorldPos - jointPos, axisWorld);
+                    if ( toEnd. sqrMagnitude < 1e-8f || toTarget. sqrMagnitude < 1e-8f )
+                        continue;
+
+                    float delta = Vector3. SignedAngle (toEnd, toTarget, axisWorld);
+
+                    float newAngle = Mathf. Clamp (angles[i] + delta,
+                        jointsSaved[i]. minMaxRotationAngle. x,
+                        jointsSaved[i]. minMaxRotationAngle. y);
+
+                    if ( Mathf. Abs (newAngle - angles[i]) < 1e-4f )
+                        continue;
+
+                    angles[i] = newAngle;
+                    // 立即应用，使子级（含末端）position 在同一帧内更新
+                    jointTransforms[i]. localRotation = Quaternion. AngleAxis (angles[i], jointsSaved[i]. axis);
+                }
+
+                if ( ( jointTransforms[endEffectorIndex]. position - targetWorldPos ). sqrMagnitude
+                     < tolerance * tolerance )
+                    break;
+            }
+
+            float posError = Vector3. Distance (jointTransforms[endEffectorIndex]. position, targetWorldPos);
+
+            // ===== 第4关节姿态解算：让末端执行器参考轴与月面平行 =====
+            int i4 = endEffectorIndex;
+            Vector3 axis4World = jointTransforms[i4]. parent != null
+                ? jointTransforms[i4]. parent. rotation * jointsSaved[i4]. axis
+                : jointsSaved[i4]. axis;
+
+            // 当前参考轴的世界方向（此时 J4 仍为 currentAngle）
+            Vector3 refWorld = jointTransforms[i4]. rotation * effectorAxisLocal;
+
+            // 目标方向：参考轴在“垂直于月面法线的平面”上的投影，即离当前最近的水平姿态
+            Vector3 planeNormal = targetNormal. normalized;
+            Vector3 targetDir = Vector3. ProjectOnPlane (refWorld, planeNormal);
+
+            Vector3 refOnAxisPlane = Vector3. ProjectOnPlane (refWorld, axis4World);
+            Vector3 tgtOnAxisPlane = Vector3. ProjectOnPlane (targetDir, axis4World);
+
+            // 参考轴与旋转轴接近平行时投影退化，跳过姿态解算
+            if ( refOnAxisPlane. sqrMagnitude > 1e-8f && tgtOnAxisPlane. sqrMagnitude > 1e-8f )
+            {
+                float delta4 = Vector3. SignedAngle (refOnAxisPlane, tgtOnAxisPlane, axis4World);
+                float newAngle4 = Mathf. Clamp (angles[i4] + delta4,
+                    jointsSaved[i4]. minMaxRotationAngle. x,
+                    jointsSaved[i4]. minMaxRotationAngle. y);
+                angles[i4] = newAngle4;
+                jointTransforms[i4]. localRotation = Quaternion. AngleAxis (angles[i4], jointsSaved[i4]. axis);
+            }
+
+            // 恢复真实姿态
+            for ( int i = 0 ; i < jointsSaved. Length ; i++ )
+                jointTransforms[i]. localRotation = backup[i];
+
+            targetAngles = angles;
+            Debug. Log ($"[ModuleManipulator] IK 解算完成，末端残余误差 {posError * 1000f:F1} mm");
+            return posError < 0.01f;
         }
 
         protected virtual void ResetLaunchPosition ()
@@ -259,8 +464,6 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 isAutoControl = false;
                 Fields["isAutoControl"]. SetValue (false, this);
             }
-            _allBoundaryPoints. Clear ();
-            UpdateVisuals ();
                 for ( int i = 0 ; i < jointsSaved. Length ; i++ )
             {
                 // 这里使用的是每个关节各自保存的 startAngle
@@ -305,9 +508,9 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             {
                 jointsSaved[i]. targetAngle = jointsSaved[i]. currentAngle;
             }
-
-            UpdateIntersection ();
-            //Vector3 targetPoint = GetTargetPoint ();//获取目标点
+            isWaitForTargetPoint = true;
+            ScreenMessages. PostScreenMessage ("开始选择目标点", 5f, ScreenMessageStyle. UPPER_CENTER);
+            //获取目标点
             //if ( targetPoint != Vector3. zero )
             //{
             //    float[] targetAngle = CalTargetAngle (targetPoint);
@@ -318,363 +521,33 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             //    startMoving = true;
             //}
         }
-        #region 与自动取样控制相关方法
-        public  void UpdateIntersection ()
-        {
-
-            _outerBoundary. Clear ();
-            _innerBoundary. Clear ();
-            _allBoundaryPoints. Clear ();
-            Vector3 basePos = part. gameObject. GetChild (jointsSaved[0]. jointTransformName). transform. position;  // 机械臂底座在世界坐标系中的位置          
-            Vector3 zAxis = transform.TransformDirection (jointsSaved[0].axis).normalized; // 底座旋转轴（局部Z）
-            float maxReach =Vector3.Distance(part.gameObject.GetChild(jointsSaved[1].jointTransformName).transform.position, part.gameObject.GetChild(jointsSaved[2].jointTransformName).transform.position)+ Vector3. Distance (part. gameObject. GetChild (jointsSaved[2]. jointTransformName). transform. position, part. gameObject. GetChild (jointsSaved[3]. jointTransformName). transform. position); // 两臂长度之和
-            float L = maxReach / 2;
-            //检测离地高度
-            // 目标天体实例
-            CelestialBody body = part.vessel.mainBody;
-            
-            if ( body == null )
-            {
-                UpdateVisuals ();
-                return;
-            }
-            // 仅在地表/低空场景执行地形计算，轨道场景直接隐藏边界
-            if ( !HighLogic. LoadedSceneIsFlight || part. vessel. altitude > body. Radius + 500 )
-            {
-                _lineRenderer. positionCount = 0;
-                return;
-            }
-            // 空间中任意点的世界坐标
-            Vector3d worldPoint = basePos;
-
-            // 地形所在层级：KSP1 中 PQS 地形的 LocalScenery 层索引为 15
-            int terrainLayer = LayerMask. NameToLayer ("LocalScenery");
-            if ( terrainLayer < 0 )
-                terrainLayer = 15;   // 兜底，防止个别环境取不到名字
-            int terrainMask = 1 << terrainLayer;
-
-            // 从地心指向 worldPoint 的单位径向向量（当地天顶方向）
-            Vector3d radialUp = ( worldPoint - body. position ). normalized;
-
-            // 判断 worldPoint 是否在地表以下：比较它与该处地形的高度
-            body. GetLatLonAlt (worldPoint, out double lat, out double lon, out double altAboveSphere);
-            // allowNegative=true，海洋/凹陷处会返回负值，判断更准确
-            double terrainAlt = body. TerrainAltitude (lat, lon, true);
-            bool underGround = altAboveSphere < terrainAlt;
-
-            // 射线起点：地表之上直接用 worldPoint；地表之下沿径向抬到地形之外
-            Vector3d rayOrigin;
-            if ( !underGround )
-            {
-                rayOrigin = worldPoint;
-            }
-            else
-            {
-                // 抬升高度必须超过该天体地形的最高点，保守取 1.1 倍基准半径
-                // 更精确可换成 body.Radius + 该天体最大地形高度
-                double safeRadius = body. Radius * 1.1;
-                rayOrigin = body. position + radialUp * safeRadius;  // 位于地形上空的外部锚点
-            }
-
-            // 统一从外向内朝地心打，起点一定在碰撞体外部，能稳定命中地表
-            Vector3d rayDir = -radialUp;
-            float maxDistance = ( float )( body. Radius * 1.5 );
-
-            Vector3d worldTerrainNormal = Vector3d. zero;
-            Vector3d terrainHitPoint= Vector3d. zero;
-            RaycastHit hitResult;
-            if ( Physics. Raycast (rayOrigin, rayDir, out hitResult, maxDistance, terrainMask, QueryTriggerInteraction. Ignore) )
-            {
-                Debug. Log ("朝地心发射射线，检测到地表");
-
-                Vector3d prevNormal = ( Vector3d )hitResult. normal;
-                Vector3d prevPoint = ( Vector3d )hitResult. point;
-
-                // 第二次：沿地形法线方向（朝地形内部）从同一外部起点再打
-                if ( Physics. Raycast (rayOrigin, -prevNormal, out hitResult, maxDistance, terrainMask, QueryTriggerInteraction. Ignore) )
-                {
-                    Debug. Log ("沿法线方向发射射线，检测到地表");
-
-                    worldTerrainNormal = ( Vector3d )hitResult. normal;
-                    terrainHitPoint = ( Vector3d )hitResult. point;
-
-                    // 法线校验：点积≈1 且位置基本不动即收敛，否则补射最多 2 次
-                    for ( int i = 0 ; i < 2 ; i++ )
-                    {
-                        float dot = ( float )Vector3d. Dot (prevNormal, worldTerrainNormal);
-                        if ( dot > 0.99999f && ( terrainHitPoint - prevPoint ). magnitude < 0.05 )
-                            break;
-
-                        prevNormal = worldTerrainNormal;
-                        prevPoint = terrainHitPoint;
-
-                        if ( !Physics. Raycast (rayOrigin, -prevNormal, out hitResult, maxDistance, terrainMask, QueryTriggerInteraction. Ignore) )
-                            break; // 极端陡坡下沿法线擦过，保留上一次结果
-
-                        worldTerrainNormal = ( Vector3d )hitResult. normal;
-                        terrainHitPoint = ( Vector3d )hitResult. point;
-                    }
-
-                    // 强制法线朝外：左手系下顶点插值法线偶发反向时的保险
-                    Vector3d outward = ( terrainHitPoint - body. position ). normalized;
-                    if ( Vector3d. Dot (worldTerrainNormal, outward) < 0.0 )
-                        worldTerrainNormal = -worldTerrainNormal;
-                }
-                else
-                {
-                    Debug. Log ("沿法线方向发射射线，未检测到地表");
-                }
-            }
-            else
-            {
-                Debug. Log ("朝地心发射射线，未检测到地表");
-            }
-            //=====================转换为平面==============================
-            Vector3 groundNormal = worldTerrainNormal. normalized; // 切平面法线
-            Vector3 groundPoint =  terrainHitPoint;                  // 切平面上一点
-
-            // 底座到切平面的有符号距离（底座在平面上方为正）
-            float heightAboveGround = Vector3. Dot (basePos - groundPoint, groundNormal);
-            Debug. Log ($"[MechArm] Height: {heightAboveGround}, MaxReach: {maxReach}, GroundDist: {groundDistance}");
-
-            // 快速拒绝：底座离地表太远，完全无法到达
-            if ( Mathf. Abs (heightAboveGround) > maxReach )
-            {
-                UpdateVisuals ();
-                return;
-            }
-
-            // 子午面径向基准：任取一个与底座轴垂直的方向
-            Vector3 sRef = Vector3. Cross (zAxis, groundNormal);
-            if ( sRef. sqrMagnitude < 1e-8f )
-                sRef = Vector3. Cross (zAxis, Vector3. forward);
-            if ( sRef. sqrMagnitude < 1e-8f )
-                sRef = Vector3. Cross (zAxis, Vector3. right);
-            sRef. Normalize ();
-
-            float angleStep = 2f * Mathf. PI / segments;
-
-            for ( int i = 0 ; i <= segments ; i++ )
-            {
-                float phi = i * angleStep;
-                Vector3 sDir = Quaternion. AngleAxis (phi * Mathf. Rad2Deg, zAxis) * sRef;
-                sDir. Normalize ();
-
-                // 切平面在子午面(s,t)下的直线：a*s + b*t + c = 0
-                float a = Vector3. Dot (sDir, groundNormal);
-                float b = Vector3. Dot (zAxis, groundNormal);
-                float c = heightAboveGround;
-
-                bool hasOuter = false;
-                bool hasInner = false;
-                Vector2 outerPoint = default;
-                Vector2 innerPoint = default;
-
-                // 1. 外边界：s² + t² = (2L)²，t ≥ 0
-                if ( LineCircleIntersection (a, b, c, 0f, 0f, 2f * L, out var outerHits) )
-                {
-                    foreach ( var hit in outerHits )
-                    {
-                        if ( hit. x >= -1e-4f && hit. y >= -1e-4f )
-                        {
-                            hasOuter = true;
-                            outerPoint = hit;
-                            break;
-                        }
-                    }
-                }
-
-                // 2. 下边界：(s - L)² + t² = L²，s ≥ 0
-                if ( LineCircleIntersection (a, b, c, L, 0f, L, out var innerHits) )
-                {
-                    foreach ( var hit in innerHits )
-                    {
-                        if ( hit. x >= -1e-4f )
-                        {
-                            if ( !hasInner || hit. x < innerPoint. x )
-                            {
-                                hasInner = true;
-                                innerPoint = hit;
-                            }
-                            if ( !hasOuter || hit. x > outerPoint. x )
-                            {
-                                hasOuter = true;
-                                outerPoint = hit;
-                            }
-                        }
-                    }
-                }
-
-                // 3. 剔除假空洞：内圆交点落在半径 2L 的半球内部即为实心区域
-                if ( hasInner )
-                {
-                    float si = innerPoint. x;
-                    float ti = innerPoint. y;
-                    if ( ti > 1e-4f && si * si + ti * ti < 4f * L * L - 1e-4f * L * L )
-                        hasInner = false;
-                }
-
-                if ( hasOuter )
-                    _outerBoundary. Add (basePos + outerPoint. x * sDir + outerPoint. y * zAxis);
-                if ( hasInner )
-                    _innerBoundary. Add (basePos + innerPoint. x * sDir + innerPoint. y * zAxis);
-            }
-
-            // 拼接闭合边界：外边界正向 + 内边界反向
-            if ( _outerBoundary. Count > 1 )
-                _allBoundaryPoints. AddRange (_outerBoundary);
-            if ( _innerBoundary. Count > 1 )
-                for ( int i = _innerBoundary. Count - 1 ; i >= 0 ; i-- )
-                    _allBoundaryPoints. Add (_innerBoundary[i]);
-
-            UpdateVisuals ();
-        }
-        /// <summary>
-        /// 计算直线a*s + b*t + c = 0与圆(s-s0)² + (t-t0)² = r²的交点
-        /// </summary>
-        /// <returns>是否有实交点</returns>
-        private bool LineCircleIntersection (float a, float b, float c, float s0, float t0, float r, out List<Vector2> hits)
-        {
-            hits = new List<Vector2> (2);
-
-            // 处理直线垂直/水平特殊情况，避免除以零
-            if ( Mathf. Abs (a) < 1e-6f && Mathf. Abs (b) < 1e-6f )
-                return false; // 直线无效
-
-            // 添加对 b 的零值检查
-            if ( Mathf. Abs (b) < 1e-6f )
-            {
-                // 处理垂直线的情况
-                float s = -c / a;
-                float dt = r * r - ( s - s0 ) * ( s - s0 );
-                if ( dt < -1e-6f )
-                    return false;
-                dt = Mathf. Max (dt, 0f);
-                float sqrtDt = Mathf. Sqrt (dt);
-                hits. Add (new Vector2 (s, t0 + sqrtDt));
-                if ( sqrtDt > 1e-6f )
-                    hits. Add (new Vector2 (s, t0 - sqrtDt));
-                return true;
-            }
-
-            // 添加对 a 的零值检查
-            if ( Mathf. Abs (a) < 1e-6f )
-            {
-                // 处理水平线的情况
-                float t = -c / b;
-                float dx = r * r - ( t - t0 ) * ( t - t0 );
-                if ( dx < -1e-6f )
-                    return false;
-                dx = Mathf. Max (dx, 0f);
-                float sqrtDx = Mathf. Sqrt (dx);
-                hits. Add (new Vector2 (s0 + sqrtDx, t));
-                if ( sqrtDx > 1e-6f )
-                    hits. Add (new Vector2 (s0 - sqrtDx, t));
-                return true;
-            }
-
-            // 一般情况：代入t = -(a*s + c)/b到圆方程，解一元二次方程
-            float invB = 1f / b;
-            float A = a * a + b * b;
-
-            // 添加对 A 的零值检查
-            if ( Mathf. Abs (A) < 1e-6f )
-                return false;
-
-            float B = 2f * ( a * c + a * b * t0 - b * b * s0 );
-            float C = c * c + 2f * b * c * t0 + b * b * ( t0 * t0 + s0 * s0 - r * r );
-
-            float discriminant = B * B - 4f * A * C;
-            if ( discriminant < -1e-6f )
-                return false;
-            discriminant = Mathf. Max (discriminant, 0f);
-            float sqrtD = Mathf. Sqrt (discriminant);
-            float inv2A = 0.5f / A;
-
-            float s1 = ( -B + sqrtD ) * inv2A;
-            float t1 = -( a * s1 + c ) * invB;
-            hits. Add (new Vector2 (s1, t1));
-
-            if ( sqrtD > 1e-6f )
-            {
-                float s2 = ( -B - sqrtD ) * inv2A;
-                float t2 = -( a * s2 + c ) * invB;
-                hits. Add (new Vector2 (s2, t2));
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// 更新渲染组件
-        /// </summary>
-        private void UpdateVisuals ()
-        {
-            // 确保 lineWidth 不为零
-            if ( lineWidth <= 0f )
-                lineWidth = 0.1f;
-            // 更新线边界
-            if ( _allBoundaryPoints. Count < 2 )
-            {
-                if ( _lineRenderer != null )
-                    _lineRenderer. positionCount = 0;
-                Debug. Log ("[MechArm] No boundary points to render.");
-                return;
-            }
-
-            // 渲染线框
-            if ( _lineRenderer != null )
-            {
-                _lineRenderer. positionCount = _allBoundaryPoints. Count;
-                _lineRenderer. SetPositions (_allBoundaryPoints. ToArray ());
-                // 确保宽度不为0
-                _lineRenderer. startWidth = lineWidth;
-                _lineRenderer. endWidth = lineWidth;
-            }
-        }
-        private void InitializeComponents ()
-        {
-            // 线渲染器设置
-            _lineRenderer = part.gameObject.AddComponent<LineRenderer> ();
-            _lineRenderer. shadowCastingMode = UnityEngine. Rendering. ShadowCastingMode. Off;
-            _lineRenderer. receiveShadows = false;
-            _lineRenderer. startWidth = lineWidth;
-            _lineRenderer. endWidth = lineWidth;
-            Shader lineShader = Shader. Find ("Sprites/Default");
-            if ( lineShader == null )
-            {
-                CASNFPLogger. Instance. LogError ("无法找到 Sprites/Default Shader，线框渲染将失效");
-                // 尝试备用 Shader
-                lineShader = Shader. Find ("Legacy Shaders/Diffuse");
-            }
-            _lineRenderer. material = new Material (lineShader) { color = fillColor };
-            _lineRenderer. startColor = boundaryColor;
-            _lineRenderer. endColor = boundaryColor;
-            _lineRenderer. loop = true;
-            _lineRenderer. useWorldSpace = true;
-            _lineRenderer. positionCount = 0;
-        }
-        #endregion
         #region 构建控制面板及各项功能
-        private void OnPartActionUIShown (UIPartActionWindow data0, Part data1)
-        {
-            if ( data1 != part )
-                return;
+         private void OnPartActionUIShown(UIPartActionWindow data0, Part data1)
+{
+    if (data1 != part) return;
+    if (HighLogic.LoadedSceneIsFlight)
+    {
+        toggleLock = Fields["isAutoControl"]?.uiControlFlight as UI_Toggle;
+        toggle = Fields["isControlPanelShow"]?.uiControlFlight as UI_Toggle;
+    }
+    else if (HighLogic.LoadedSceneIsEditor)
+    {
+        toggleLock = Fields["isAutoControl"]?.uiControlEditor as UI_Toggle;
+        toggle = Fields["isControlPanelShow"]?.uiControlEditor as UI_Toggle;
+    }
 
-            if ( HighLogic. LoadedSceneIsFlight )
-            {
-                toggleLock = Fields["isAutoControl"]?.uiControlFlight as UI_Toggle;
-                toggle = Fields["isControlPanelShow"]?.uiControlFlight as UI_Toggle;
-            }
-            else if ( HighLogic. LoadedSceneIsEditor )
-            {
-                toggleLock = Fields["isAutoControl"]?.uiControlEditor as UI_Toggle;
-                toggle = Fields["isControlPanelShow"]?.uiControlEditor as UI_Toggle;
-            }
+    if (toggleLock != null)
+    {
+        toggleLock.onFieldChanged -= OnLockFieldChanged;
+        toggleLock.onFieldChanged += OnLockFieldChanged;
+    }
+    if (toggle != null)
+    {
+        toggle.onFieldChanged -= OnFieldChanged;
+        toggle.onFieldChanged += OnFieldChanged;
+    }
+}
 
-            if ( toggleLock != null)toggleLock. onFieldChanged = OnLockFieldChanged;
-            if( toggle != null )toggle. onFieldChanged = OnFieldChanged;
-        }
 
         private void OnPartActionUIDismiss (Part data)
         {
