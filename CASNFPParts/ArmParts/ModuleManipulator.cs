@@ -7,45 +7,61 @@ using System. Reflection;
 using System. Text;
 using System. Threading. Tasks;
 using UnityEngine;
+
 namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 {
-
     /// <summary>
     /// 所有机械臂部件的基类[CASNFP]
     /// </summary>
-    public class ModuleManipulator:PartModule,IJointLockState
+    public class ModuleManipulator : PartModule, IJointLockState
     {
-        [UI_Toggle (disabledText = "已关闭", scene = UI_Scene.Flight, enabledText = "已启动")]
-        [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "机械臂自动控制开关",groupName = "ManipulatorControl", groupDisplayName = "机械臂控制", groupStartCollapsed = true)]
-        public bool isAutoControl = false;//是否锁定
+        [UI_Toggle (disabledText = "已关闭", scene = UI_Scene. Flight, enabledText = "已启动")]
+        [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "机械臂自动控制开关", groupName = "ManipulatorControl", groupDisplayName = "机械臂控制", groupStartCollapsed = true)]
+        public bool isAutoControl = false; // 是否锁定
+
         [UI_Toggle (disabledText = "关闭", scene = UI_Scene. All, enabledText = "打开")]
-        [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = true, guiName = "控制面板开关", groupName = "ManipulatorControl", groupDisplayName = "机械臂控制", groupStartCollapsed = true)] 
+        [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = true, guiName = "控制面板开关", groupName = "ManipulatorControl", groupDisplayName = "机械臂控制", groupStartCollapsed = true)]
         public bool isControlPanelShow = false;
+
         [KSPEvent (guiActiveUncommand = true, active = true, guiActiveUnfocused = true, guiActive = true, guiActiveEditor = false, guiName = "机械臂复位", groupName = "ManipulatorControl", groupDisplayName = "机械臂控制", groupStartCollapsed = true)]
         public void ResetPosition ()
         {
             ResetLaunchPosition ();
         }
+
         [KSPField]
         public int jointCount = 0;
+
         [KSPField]
-        public string jointsPartArray= string.Empty;
-        [KSPField(isPersistant = true)]
+        public string jointsPartArray = string. Empty;
+
+        [KSPField (isPersistant = true)]
         public bool isJointUnlocked = true;
+
         [KSPField (isPersistant = true)]
         public int armTypeIndex = 0;
-        //[KSPField]
-        //public string bottomNodeName = "bottom";
-        //[KSPField]
-        //public string workNodeName = "workDrill";
+
+        // [KSPField]
+        // public string bottomNodeName = "bottom";
+        // [KSPField]
+        // public string workNodeName = "workDrill";
+
         protected SaveJointInfo bottomJoint;
         protected SaveJointInfo topJoint;
-        /// 各关节 Transform 缓存，避免每帧 GetChild</summary>
+
+        /// <summary>
+        /// 各关节 Transform 缓存，避免每帧 GetChild
+        /// </summary>
         protected Transform[] jointTransforms;
-        /// 末端执行器在关节数组中的索引（第4个关节，不参与 IK 计算）</summary>
+
+        /// <summary>
+        /// 末端执行器在关节数组中的索引（第4个关节，不参与 IK 计算）
+        /// </summary>
         protected int endEffectorIndex = 3;
-        public Vector3 effectorAxisLocal = Vector3.up;
+
+        public Vector3 effectorAxisLocal = Vector3. up;
         public SaveJointInfo[] jointsSaved;
+
         protected ConfigNode thisConfigNode;
         protected UI_Toggle toggleLock;
         protected UI_Toggle toggle;
@@ -54,12 +70,14 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         private bool isWaitForTargetPoint = false;
         private ArmType armType;
         private Vector3 targetPoint;
+
         public override void OnAwake ()
         {
             base. OnAwake ();
+
             if ( thisConfigNode == null )
             {
-                thisConfigNode = part. partInfo. partConfig. GetNode ("MODULE", "name", this.moduleName);
+                thisConfigNode = part. partInfo. partConfig. GetNode ("MODULE", "name", this. moduleName);
                 if ( thisConfigNode == null )
                 {
                     Debug. Log ("thisConfigNode is null");
@@ -67,33 +85,41 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                     return;
                 }
             }
+
             if ( jointsSaved == null || jointsSaved. Length == 0 || jointsSaved. Length != jointCount )
             {
-                jointsSaved=CreatJointInfoWithConfig (thisConfigNode);
-                if(jointsSaved.Length == 0 )
+                jointsSaved = CreatJointInfoWithConfig (thisConfigNode);
+                if ( jointsSaved. Length == 0 )
                 {
                     CASNFPLogger. Instance. LogError ("程序出错，机械臂部件的关节信息为空，终止机械臂控制程序");
                     Destroy (this);
                     return;
                 }
             }
+
             bottomJoint = jointsSaved[0];
             topJoint = jointsSaved[jointsSaved. Length - 1];
         }
+
         public override void OnStart (StartState state)
         {
             base. OnStart (state);
             armType = CheckArmType ();
+
             // 缓存关节 Transform 引用
             jointTransforms = new Transform[jointsSaved. Length];
             for ( int i = 0 ; i < jointsSaved. Length ; i++ )
             {
                 jointTransforms[i] = part. gameObject. GetChild (jointsSaved[i]. jointTransformName). transform;
             }
+
             endEffectorIndex = jointsSaved. Length - 1; // 第4个关节即末端执行器
+
             GameEvents. onPartActionUIDismiss. Add (OnPartActionUIDismiss);
             GameEvents. onPartActionUIShown. Add (OnPartActionUIShown);
-            for ( int i = 0 ; i < jointsSaved. Length ; i++ )//设置关节初始位置。
+
+            // 设置关节初始位置
+            for ( int i = 0 ; i < jointsSaved. Length ; i++ )
             {
                 part. gameObject. GetChild (jointsSaved[i]. jointTransformName). transform. localRotation = Quaternion. AngleAxis (jointsSaved[i]. currentAngle, jointsSaved[i]. axis);
             }
@@ -101,7 +127,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 
         private ArmType CheckArmType ()
         {
-            switch(armTypeIndex)
+            switch ( armTypeIndex )
             {
                 case 0:
                     return ArmType. Sampling;
@@ -110,17 +136,20 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 case 2:
                     return ArmType. Crawling;
                 case 3:
-                    return ArmType.Connecting;
+                    return ArmType. Connecting;
                 default:
-                    throw new  System. Exception ("未知的机械臂类型，请检查配置文件");
+                    throw new System. Exception ("未知的机械臂类型，请检查配置文件");
             }
         }
 
         public override void OnSave (ConfigNode node)
         {
             base. OnSave (node);
+
             if ( jointsSaved == null || jointsSaved. Length == 0 )
+            {
                 return;
+            }
 
             // 创建或获取专门存储关节数据的节点
             ConfigNode jointsNode;
@@ -166,7 +195,9 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 {
                     string savedName = jNode. GetValue ("name");
                     if ( string. IsNullOrEmpty (savedName) )
+                    {
                         continue;
+                    }
 
                     // 查找匹配的关节
                     for ( int i = 0 ; i < jointsSaved. Length ; i++ )
@@ -175,13 +206,19 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                         {
                             // 恢复数值
                             if ( jNode. HasValue ("currentAngle") )
+                            {
                                 jointsSaved[i]. currentAngle = float. Parse (jNode. GetValue ("currentAngle"));
+                            }
 
                             if ( jNode. HasValue ("targetAngle") )
+                            {
                                 jointsSaved[i]. targetAngle = float. Parse (jNode. GetValue ("targetAngle"));
+                            }
 
                             if ( jNode. HasValue ("startAngle") )
+                            {
                                 jointsSaved[i]. startAngle = float. Parse (jNode. GetValue ("startAngle"));
+                            }
 
                             break; // 找到匹配项后跳出内层循环
                         }
@@ -232,21 +269,25 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         public override void OnUpdate ()
         {
             base. OnUpdate ();
+
             if ( !IsJointUnlocked () )
             {
                 return;
             }
-            if (isWaitForTargetPoint)
+
+            if ( isWaitForTargetPoint )
             {
-                SetTragetPoint();
+                SetTragetPoint ();
                 return;
             }
-            if (startMoving)
+
+            if ( startMoving )
             {
                 foreach ( var joint in jointsSaved )
                 {
                     RotateInFlight (Array. IndexOf (jointsSaved, joint));
                 }
+
                 if ( jointsSaved. All (j => j. targetAngle == j. currentAngle) )
                 {
                     Debug. Log ("机械臂运动结束");
@@ -257,24 +298,28 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 
         protected virtual void SetTragetPoint ()
         {
-            //选择目标点。
-            if (targetPoint == null)
+            // 选择目标点
+            if ( targetPoint == null )
             {
                 targetPoint = new Vector3 (0, 0, 0);
             }
-            if ( armType == ArmType.Sampling )
+
+            if ( armType == ArmType. Sampling )
             {
                 SetTargetWithSampling ();
             }
-            if ( armType == ArmType.Grasping)
-            {
-                SetTargetWithGrasping();
-            }
-            if ( armType == ArmType.Crawling )
+
+            if ( armType == ArmType. Grasping )
             {
                 SetTargetWithGrasping ();
             }
-            if ( armType == ArmType.Connecting)
+
+            if ( armType == ArmType. Crawling )
+            {
+                SetTargetWithGrasping ();
+            }
+
+            if ( armType == ArmType. Connecting )
             {
                 SetTargetWithGrasping ();
             }
@@ -282,14 +327,16 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 
         private void SetTargetWithGrasping ()
         {
-            //其他类型机械臂获取目标点
+            // 其他类型机械臂获取目标点
             return;
         }
 
         private void SetTargetWithSampling ()
         {
             if ( !isWaitForTargetPoint )
+            {
                 return;
+            }
 
             if ( Input. GetMouseButtonDown (0) ) // 左键点击
             {
@@ -299,7 +346,9 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 // 创建一个只包含地形层的层掩码
                 int terrainLayer = LayerMask. NameToLayer ("LocalScenery");
                 if ( terrainLayer < 0 )
+                {
                     terrainLayer = 15;
+                }
                 int terrainMask = 1 << terrainLayer;
 
                 if ( !Physics. Raycast (ray, out hit, Mathf. Infinity, terrainMask) )
@@ -310,13 +359,16 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 
                 // 获取点击点的世界坐标
                 Vector3 hitPoint = hit. point;
-                Vector3  movePoint = hitPoint + hit.normal.normalized * 0.1f;
-                //=======根据语义，这里应该调用机械臂的 IK 计算函数，请帮我实现这里的代码=======
+                Vector3 movePoint = hitPoint + hit. normal. normalized * 0.1f;
+
+                // =======根据语义，这里应该调用机械臂的 IK 计算函数，请帮我实现这里的代码=======
                 float[] targetAngle = new float[jointsSaved. Length];
                 for ( int i = 0 ; i < jointsSaved. Length ; i++ ) // 默认保持当前角度，第4关节不动
+                {
                     targetAngle[i] = jointsSaved[i]. currentAngle;
+                }
 
-                if ( SolveIKToTarget (movePoint,hit.normal, out float[] solvedAngles) )
+                if ( SolveIKToTarget (movePoint, hit. normal, out float[] solvedAngles) )
                 {
                     targetAngle = solvedAngles;
                     isWaitForTargetPoint = false;
@@ -333,11 +385,12 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 {
                     jointsSaved[i]. targetAngle = targetAngle[i];
                 }
+
                 startMoving = true;
             }
         }
 
-        /// 
+        /// <summary>
         /// 数值逆运动学求解：前3个关节使末端执行器到达目标点；
         /// 收敛后再解算第4关节，使末端执行器参考轴与月面平行。
         /// 第4个关节不参与位置计算。全程使用关节自身的旋转轴与父级坐标系。
@@ -345,12 +398,14 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         /// <param name="targetWorldPos">目标点世界坐标</param>
         /// <param name="targetNormal">目标点的月面法线（射线命中点的法线）</param>
         /// <param name="targetAngles">输出：各关节目标角度（度）</param>
-        /// 是否成功收敛（末端距目标点 1cm 以内）</returns>
+        /// <returns>是否成功收敛（末端距目标点 1cm 以内）</returns>
         protected bool SolveIKToTarget (Vector3 targetWorldPos, Vector3 targetNormal, out float[] targetAngles)
         {
             targetAngles = null;
             if ( jointTransforms == null || jointsSaved == null || jointsSaved. Length < 2 )
+            {
                 return false;
+            }
 
             int activeCount = endEffectorIndex; // 参与位置解算的关节（0 ~ activeCount-1），第4关节不参与
             const int maxIter = 40;
@@ -359,12 +414,16 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             // 以当前实际角度作为迭代初值；第4个关节保持不变
             float[] angles = new float[jointsSaved. Length];
             for ( int i = 0 ; i < jointsSaved. Length ; i++ )
+            {
                 angles[i] = jointsSaved[i]. currentAngle;
+            }
 
             // 备份当前姿态，迭代结束后恢复（迭代只用于计算，不产生视觉跳变）
             Quaternion[] backup = new Quaternion[jointsSaved. Length];
             for ( int i = 0 ; i < jointsSaved. Length ; i++ )
+            {
                 backup[i] = jointTransforms[i]. localRotation;
+            }
 
             // ===== 位置迭代：仅前3个关节，第4个关节保持 currentAngle 不动 =====
             for ( int iter = 0 ; iter < maxIter ; iter++ )
@@ -373,7 +432,9 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 {
                     Vector3 endPos = jointTransforms[endEffectorIndex]. position;
                     if ( ( endPos - targetWorldPos ). sqrMagnitude < tolerance * tolerance )
+                    {
                         break;
+                    }
 
                     Vector3 jointPos = jointTransforms[i]. position;
 
@@ -386,7 +447,9 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                     Vector3 toEnd = Vector3. ProjectOnPlane (endPos - jointPos, axisWorld);
                     Vector3 toTarget = Vector3. ProjectOnPlane (targetWorldPos - jointPos, axisWorld);
                     if ( toEnd. sqrMagnitude < 1e-8f || toTarget. sqrMagnitude < 1e-8f )
+                    {
                         continue;
+                    }
 
                     float delta = Vector3. SignedAngle (toEnd, toTarget, axisWorld);
 
@@ -395,16 +458,19 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                         jointsSaved[i]. minMaxRotationAngle. y);
 
                     if ( Mathf. Abs (newAngle - angles[i]) < 1e-4f )
+                    {
                         continue;
+                    }
 
                     angles[i] = newAngle;
                     // 立即应用，使子级（含末端）position 在同一帧内更新
                     jointTransforms[i]. localRotation = Quaternion. AngleAxis (angles[i], jointsSaved[i]. axis);
                 }
 
-                if ( ( jointTransforms[endEffectorIndex]. position - targetWorldPos ). sqrMagnitude
-                     < tolerance * tolerance )
+                if ( ( jointTransforms[endEffectorIndex]. position - targetWorldPos ). sqrMagnitude < tolerance * tolerance )
+                {
                     break;
+                }
             }
 
             float posError = Vector3. Distance (jointTransforms[endEffectorIndex]. position, targetWorldPos);
@@ -438,7 +504,9 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 
             // 恢复真实姿态
             for ( int i = 0 ; i < jointsSaved. Length ; i++ )
+            {
                 jointTransforms[i]. localRotation = backup[i];
+            }
 
             targetAngles = angles;
             Debug. Log ($"[ModuleManipulator] IK 解算完成，末端残余误差 {posError * 1000f:F1} mm");
@@ -464,24 +532,29 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 isAutoControl = false;
                 Fields["isAutoControl"]. SetValue (false, this);
             }
-                for ( int i = 0 ; i < jointsSaved. Length ; i++ )
+
+            for ( int i = 0 ; i < jointsSaved. Length ; i++ )
             {
                 // 这里使用的是每个关节各自保存的 startAngle
                 jointsSaved[i]. targetAngle = jointsSaved[i]. startAngle;
             }
+
             startMoving = true;
         }
+
         protected virtual void RotateInFlight (int index)
         {
-            if ( jointsSaved[index].targetAngle == jointsSaved[index].currentAngle ) 
+            if ( jointsSaved[index]. targetAngle == jointsSaved[index]. currentAngle )
             {
                 return;
             }
-            float angle = Mathf. MoveTowards (jointsSaved[index].currentAngle, jointsSaved[index].targetAngle, Time. deltaTime * jointsSaved[index].rotaSpeed);
+
+            float angle = Mathf. MoveTowards (jointsSaved[index]. currentAngle, jointsSaved[index]. targetAngle, Time. deltaTime * jointsSaved[index]. rotaSpeed);
             part. gameObject. GetChild (jointsSaved[index]. jointTransformName). transform. localRotation = Quaternion. AngleAxis (angle, jointsSaved[index]. axis);
             jointsSaved[index]. currentAngle = angle;
         }
-        protected virtual void RotateInEditor(int index)
+
+        protected virtual void RotateInEditor (int index)
         {
             if ( index < 0 || index >= jointsSaved. Length )
             {
@@ -495,64 +568,78 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 CASNFPLogger. Instance. LogError ($"关节 {index} 的 Transform 未设置");
                 return;
             }
+
             float angle = Mathf. Clamp (joint. targetAngle, joint. minMaxRotationAngle. x, joint. minMaxRotationAngle. y);
             Quaternion rotation = Quaternion. AngleAxis (angle, joint. axis);
             part. gameObject. GetChild (joint. jointTransformName). transform. localRotation = rotation;
-            jointsSaved[index].currentAngle = joint. targetAngle;
+            jointsSaved[index]. currentAngle = joint. targetAngle;
         }
+
         protected virtual void StartAutoControl ()
         {
             Debug. Log ("机械臂开始自动控制");
             startMoving = false;
-            for ( int i = 0 ; i < jointsSaved. Length ; i++ ) //重置目标角度为当前角度。
+
+            // 重置目标角度为当前角度
+            for ( int i = 0 ; i < jointsSaved. Length ; i++ )
             {
                 jointsSaved[i]. targetAngle = jointsSaved[i]. currentAngle;
             }
+
             isWaitForTargetPoint = true;
             ScreenMessages. PostScreenMessage ("开始选择目标点", 5f, ScreenMessageStyle. UPPER_CENTER);
-            //获取目标点
-            //if ( targetPoint != Vector3. zero )
-            //{
-            //    float[] targetAngle = CalTargetAngle (targetPoint);
-            //    for ( int i = 0 ; i < jointsSaved. Length ; i++ )
-            //    {
-            //        jointsSaved[i]. targetAngle = targetAngle[i];
-            //    }
-            //    startMoving = true;
-            //}
+
+            // 获取目标点
+            // if (targetPoint != Vector3.zero)
+            // {
+            //     float[] targetAngle = CalTargetAngle(targetPoint);
+            //     for (int i = 0; i < jointsSaved.Length; i++)
+            //     {
+            //         jointsSaved[i].targetAngle = targetAngle[i];
+            //     }
+            //     startMoving = true;
+            // }
         }
+
         #region 构建控制面板及各项功能
-         private void OnPartActionUIShown(UIPartActionWindow data0, Part data1)
-{
-    if (data1 != part) return;
-    if (HighLogic.LoadedSceneIsFlight)
-    {
-        toggleLock = Fields["isAutoControl"]?.uiControlFlight as UI_Toggle;
-        toggle = Fields["isControlPanelShow"]?.uiControlFlight as UI_Toggle;
-    }
-    else if (HighLogic.LoadedSceneIsEditor)
-    {
-        toggleLock = Fields["isAutoControl"]?.uiControlEditor as UI_Toggle;
-        toggle = Fields["isControlPanelShow"]?.uiControlEditor as UI_Toggle;
-    }
 
-    if (toggleLock != null)
-    {
-        toggleLock.onFieldChanged -= OnLockFieldChanged;
-        toggleLock.onFieldChanged += OnLockFieldChanged;
-    }
-    if (toggle != null)
-    {
-        toggle.onFieldChanged -= OnFieldChanged;
-        toggle.onFieldChanged += OnFieldChanged;
-    }
-}
+        private void OnPartActionUIShown (UIPartActionWindow data0, Part data1)
+        {
+            if ( data1 != part )
+            {
+                return;
+            }
 
+            if ( HighLogic. LoadedSceneIsFlight )
+            {
+                toggleLock = Fields["isAutoControl"]?.uiControlFlight as UI_Toggle;
+                toggle = Fields["isControlPanelShow"]?.uiControlFlight as UI_Toggle;
+            }
+            else if ( HighLogic. LoadedSceneIsEditor )
+            {
+                toggleLock = Fields["isAutoControl"]?.uiControlEditor as UI_Toggle;
+                toggle = Fields["isControlPanelShow"]?.uiControlEditor as UI_Toggle;
+            }
+
+            if ( toggleLock != null )
+            {
+                toggleLock. onFieldChanged -= OnLockFieldChanged;
+                toggleLock. onFieldChanged += OnLockFieldChanged;
+            }
+
+            if ( toggle != null )
+            {
+                toggle. onFieldChanged -= OnFieldChanged;
+                toggle. onFieldChanged += OnFieldChanged;
+            }
+        }
 
         private void OnPartActionUIDismiss (Part data)
         {
             if ( data != part )
+            {
                 return;
+            }
 
             // 如果控制面板是打开的，关闭它并销毁 Dialog
             if ( isControlPanelShow )
@@ -577,19 +664,23 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 
             // 清除事件绑定，防止后续回调
             if ( toggleLock != null )
+            {
                 toggleLock. onFieldChanged = null;
-            if ( toggle != null )
-                toggle. onFieldChanged = null;
-        }
+            }
 
+            if ( toggle != null )
+            {
+                toggle. onFieldChanged = null;
+            }
+        }
 
         private void OnLockFieldChanged (BaseField arg1, object arg2)
         {
             if ( isAutoControl )
             {
-                if ( isControlPanelShow)
+                if ( isControlPanelShow )
                 {
-                    Fields["isControlPanelShow"].SetValue (!isControlPanelShow,this);
+                    Fields["isControlPanelShow"]. SetValue (!isControlPanelShow, this);
                     if ( dialog != null )
                     {
                         dialog. Dismiss ();
@@ -607,14 +698,16 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 }
             }
         }
+
         private void OnFieldChanged (BaseField arg1, object arg2)
         {
             if ( isControlPanelShow )
             {
-                if (!isAutoControl )
+                if ( !isAutoControl )
                 {
                     dialog = ShowDialog ();
-                }else 
+                }
+                else
                 {
                     isControlPanelShow = !isControlPanelShow;
                     ScreenMessages. PostScreenMessage ("机械臂启动自动控制，手动控制模式关闭", 3f, ScreenMessageStyle. UPPER_CENTER);
@@ -629,6 +722,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 }
             }
         }
+
         private PopupDialog ShowDialog ()
         {
             UIStyle lowerRightStyle = new UIStyle (HighLogic. UISkin. label)
@@ -639,58 +733,63 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             };
             UIStyle midLeftStyle = new UIStyle (HighLogic. UISkin. label)
             {
-                alignment = TextAnchor.MiddleLeft,
+                alignment = TextAnchor. MiddleLeft,
                 stretchWidth = true,
                 fontSize = 12
             };
-            DialogGUIBase[] dialogGUIs = new DialogGUIBase[jointsSaved.Length+2];
-            for ( int i = 0 ; i < dialogGUIs.Length ; i++ )
+
+            DialogGUIBase[] dialogGUIs = new DialogGUIBase[jointsSaved. Length + 2];
+            for ( int i = 0 ; i < dialogGUIs. Length ; i++ )
             {
                 int currentIndex = i;
                 if ( currentIndex == 0 )
                 {
-                    dialogGUIs[currentIndex] = new DialogGUILabel ($"当前机械臂有{jointsSaved.Length}个关节,可调节各关节角度",true, false);
+                    dialogGUIs[currentIndex] = new DialogGUILabel ($"当前机械臂有{jointsSaved. Length}个关节,可调节各关节角度", true, false);
                     continue;
                 }
+
                 if ( currentIndex > jointsSaved. Length )
                 {
                     dialogGUIs[currentIndex] = new DialogGUILabel ("V:" + CASNFP_Globals. CASNFP_VERSION, lowerRightStyle, true, false);
                     break;
                 }
-                DialogGUIBase leftDialog = new DialogGUIHorizontalLayout (false, false, 0f, new RectOffset (0, 0, 0, 0), TextAnchor. MiddleLeft, new DialogGUILabel (()=> "第" + ( currentIndex ). ToString () + "号关节角度："+ jointsSaved[currentIndex - 1]. targetAngle. ToString () + "°", midLeftStyle, true, false));
-                DialogGUIBase sliderDialog = new DialogGUIHorizontalLayout (false, false, 0f, new RectOffset (0, 0, 0,0), TextAnchor.MiddleLeft, new DialogGUISlider (() => jointsSaved[currentIndex - 1]. targetAngle, jointsSaved[currentIndex - 1]. minMaxRotationAngle. x, jointsSaved[currentIndex - 1]. minMaxRotationAngle. y, true, 150f, 5f,
+
+                DialogGUIBase leftDialog = new DialogGUIHorizontalLayout (false, false, 0f, new RectOffset (0, 0, 0, 0), TextAnchor. MiddleLeft, new DialogGUILabel (() => "第" + ( currentIndex ). ToString () + "号关节角度：" + jointsSaved[currentIndex - 1]. targetAngle. ToString () + "°", midLeftStyle, true, false));
+                DialogGUIBase sliderDialog = new DialogGUIHorizontalLayout (false, false, 0f, new RectOffset (0, 0, 0, 0), TextAnchor. MiddleLeft, new DialogGUISlider (() => jointsSaved[currentIndex - 1]. targetAngle, jointsSaved[currentIndex - 1]. minMaxRotationAngle. x, jointsSaved[currentIndex - 1]. minMaxRotationAngle. y, true, 150f, 5f,
                     (float value) =>
                     {
                         if ( currentIndex >= 1 && currentIndex <= jointsSaved. Length )
                         {
-
                             jointsSaved[currentIndex - 1]. targetAngle = Mathf. Clamp (value, jointsSaved[currentIndex - 1]. minMaxRotationAngle. x, jointsSaved[currentIndex - 1]. minMaxRotationAngle. y);
                             if ( HighLogic. LoadedSceneIsEditor )
-                                {
+                            {
                                 RotateInEditor (currentIndex - 1);
                             }
-                            if ( HighLogic. LoadedSceneIsFlight && !isAutoControl)
+                            if ( HighLogic. LoadedSceneIsFlight && !isAutoControl )
+                            {
                                 startMoving = true;
+                            }
                         }
-
                     }));
-                //最后将三个信息组合起来
-                dialogGUIs[currentIndex] = new DialogGUIHorizontalLayout (false, false, 0f, new RectOffset (0, 0,0,0), TextAnchor.MiddleLeft, leftDialog, sliderDialog);
+
+                // 最后将三个信息组合起来
+                dialogGUIs[currentIndex] = new DialogGUIHorizontalLayout (false, false, 0f, new RectOffset (0, 0, 0, 0), TextAnchor. MiddleLeft, leftDialog, sliderDialog);
             }
+
             DialogGUIVerticalLayout dialogGUIVerticalLayout = new DialogGUIVerticalLayout (true,
                 true,
                 5f,
                 new RectOffset (10, 10, 10, 10),
                 TextAnchor. MiddleCenter,
                 dialogGUIs);
-            return PopupDialog.SpawnPopupDialog (new Vector2 (0.5f, 0.5f), new Vector2 (0.5f, 0.5f), new MultiOptionDialog ("", "", "机械臂控制面板", HighLogic.UISkin, dialogGUIVerticalLayout),false, HighLogic.UISkin,false,"");
+            return PopupDialog. SpawnPopupDialog (new Vector2 (0.5f, 0.5f), new Vector2 (0.5f, 0.5f), new MultiOptionDialog ("", "", "机械臂控制面板", HighLogic. UISkin, dialogGUIVerticalLayout), false, HighLogic. UISkin, false, "");
         }
 
         /// <summary>
-        /// 读取cfg中各关节的参数，设置关节信息。
+        /// 读取 cfg 中各关节的参数，设置关节信息。
         /// </summary>
-        /// <param name="node">cfg中这个MODULE的存储节点</param>
-        /// <returns>SaveJointInfo[]数组</returns>
+        /// <param name="node">cfg 中这个 MODULE 的存储节点</param>
+        /// <returns>SaveJointInfo[] 数组</returns>
         private SaveJointInfo[] CreatJointInfoWithConfig (ConfigNode node)
         {
             if ( jointsPartArray == "" )
@@ -698,24 +797,27 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 CASNFPLogger. Instance. LogWarning ("机械臂部件的关节名称为空值");
                 return new SaveJointInfo[0];
             }
-            string[] jointsPartNames = jointsPartArray. Split (new char[3] { ',', ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+
+            string[] jointsPartNames = jointsPartArray. Split (new char[3] { ',', ' ', '\t' }, StringSplitOptions. RemoveEmptyEntries);
             ConfigNode[] readNodes = node. GetNodes ("JointConfig");
             if ( jointsPartNames. Length != jointCount || readNodes. Length != jointCount )
             {
                 CASNFPLogger. Instance. LogWarning ("机械臂部件的关节数量和关节名称数量不匹配");
                 return new SaveJointInfo[0];
             }
+
             for ( int i = 0 ; i < jointsPartNames. Length ; i++ )
             {
                 jointsPartNames[i] = jointsPartNames[i]. Trim ();
             }
+
             SaveJointInfo[] jointInfos = new SaveJointInfo[jointCount];
             for ( int i = 0 ; i < readNodes. Length ; i++ )
             {
-                string jointPartName = readNodes[i]. GetValue ("jointPartName").Trim();
+                string jointPartName = readNodes[i]. GetValue ("jointPartName"). Trim ();
                 for ( int j = 0 ; j < jointsPartNames. Length ; j++ )
                 {
-                    if ( jointsPartNames[j] == jointPartName)
+                    if ( jointsPartNames[j] == jointPartName )
                     {
                         jointInfos[j] = CreatJointsInfo (readNodes[i]);
                         if ( string. IsNullOrEmpty (jointInfos[j]. name) )
@@ -724,12 +826,13 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                         }
                     }
                 }
-
             }
+
             bottomJoint = jointInfos[0];
             topJoint = jointInfos[jointInfos. Length - 1];
             return jointInfos;
         }
+
         private SaveJointInfo CreatJointsInfo (ConfigNode configNode)
         {
             try
@@ -738,7 +841,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 float offsetAngle = float. Parse (configNode. GetValue ("offsetAngle"));
                 Vector2 minMax = ConfigNode. ParseVector2 (configNode. GetValue ("minMaxRotationAngle"));
 
-                //  clamp 初始角度
+                // clamp 初始角度
                 float angle = Mathf. Clamp (offsetAngle, minMax. x, minMax. y);
                 SaveJointInfo jointInfo = new SaveJointInfo ()
                 {
@@ -760,11 +863,13 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             }
             catch ( Exception )
             {
-                CASNFPLogger.Instance.LogError ("关节参数读取错误");
+                CASNFPLogger. Instance. LogError ("关节参数读取错误");
                 return new SaveJointInfo ();
             }
         }
+
         #endregion
+
         protected Vector3 ChangeToV3 (string v)
         {
             switch ( v )
@@ -782,17 +887,17 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 case "Z":
                     return Vector3. forward;
                 case "-x":
-                    return Vector3.left;
+                    return Vector3. left;
                 case "-y":
-                    return Vector3.down;
+                    return Vector3. down;
                 case "-z":
-                    return Vector3.back;
+                    return Vector3. back;
                 case "-X":
-                    return Vector3.left;
+                    return Vector3. left;
                 case "-Y":
-                    return Vector3.down;
+                    return Vector3. down;
                 case "-Z":
-                    return Vector3.back;
+                    return Vector3. back;
                 default:
                     return Vector3. right;
             }
