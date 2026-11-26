@@ -7,6 +7,7 @@ using System. Reflection;
 using System. Text;
 using System. Threading. Tasks;
 using UnityEngine;
+using static ActiveJoint;
 
 namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 {
@@ -23,7 +24,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = true, guiName = "控制面板开关", groupName = "ManipulatorControl", groupDisplayName = "机械臂控制", groupStartCollapsed = true)]
         public bool isControlPanelShow = false;
 
-        [KSPEvent (guiActiveUncommand = true, active = true, guiActiveUnfocused = true, guiActive = true, guiActiveEditor = false, guiName = "机械臂复位", groupName = "ManipulatorControl", groupDisplayName = "机械臂控制", groupStartCollapsed = true)]
+        [KSPEvent (guiActiveUncommand = true, active = true, guiActiveUnfocused = true, guiActive = true, guiActiveEditor = true, guiName = "机械臂复位", groupName = "ManipulatorControl", groupDisplayName = "机械臂控制", groupStartCollapsed = true)]
         public void ResetPosition ()
         {
             ResetLaunchPosition ();
@@ -88,7 +89,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 
             if ( jointsSaved == null || jointsSaved. Length == 0 || jointsSaved. Length != jointCount )
             {
-                jointsSaved = CreatJointInfoWithConfig (thisConfigNode);
+                jointsSaved = CreateJointInfoWithConfig (thisConfigNode);
                 if ( jointsSaved. Length == 0 )
                 {
                     CASNFPLogger. Instance. LogError ("程序出错，机械臂部件的关节信息为空，终止机械臂控制程序");
@@ -117,11 +118,11 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 
             GameEvents. onPartActionUIDismiss. Add (OnPartActionUIDismiss);
             GameEvents. onPartActionUIShown. Add (OnPartActionUIShown);
-
+            DebugStartAngle ();
             // 设置关节初始位置
             for ( int i = 0 ; i < jointsSaved. Length ; i++ )
             {
-                part. gameObject. GetChild (jointsSaved[i]. jointTransformName). transform. localRotation = Quaternion. AngleAxis (jointsSaved[i]. currentAngle, jointsSaved[i]. axis);
+                jointTransforms[i]. localRotation = Quaternion. AngleAxis (jointsSaved[i]. currentAngle, jointsSaved[i]. axis);
             }
         }
 
@@ -173,8 +174,19 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 jointNode. AddValue ("targetAngle", jointsSaved[i]. targetAngle);
                 jointNode. AddValue ("startAngle", jointsSaved[i]. startAngle); // 保存起始角度
             }
+            DebugStartAngle ();
         }
-
+        private void DebugStartAngle ()
+        {
+            if ( jointsSaved == null || jointsSaved. Length == 0 )
+            {
+                return;
+            }
+            for ( int i = 0 ; i < jointsSaved. Length ; i++ )
+            {
+                Debug. Log ($"Joint {i} start angle: {jointsSaved[i]. startAngle}");
+            }
+        }
         public override void OnLoad (ConfigNode node)
         {
             base. OnLoad (node);
@@ -224,7 +236,8 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                         }
                     }
                 }
-            }
+            }else Debug.LogWarning ("[ModuleManipulator] OnLoad: jointsNode == null");
+            DebugStartAngle ();
         }
 
         public void OnDestroy ()
@@ -277,7 +290,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 
             if ( isWaitForTargetPoint )
             {
-                SetTragetPoint ();
+                SetTargetPoint ();
                 return;
             }
 
@@ -296,7 +309,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             }
         }
 
-        protected virtual void SetTragetPoint ()
+        protected virtual void SetTargetPoint ()
         {
             // 选择目标点
             if ( targetPoint == null )
@@ -532,14 +545,18 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 isAutoControl = false;
                 Fields["isAutoControl"]. SetValue (false, this);
             }
-
             for ( int i = 0 ; i < jointsSaved. Length ; i++ )
             {
-                // 这里使用的是每个关节各自保存的 startAngle
-                jointsSaved[i]. targetAngle = jointsSaved[i]. startAngle;
+                if ( HighLogic. LoadedSceneIsEditor )
+                {
+                    jointsSaved[i]. targetAngle = jointsSaved[i].cfgAngle;
+                    RotateInEditor (i);
+                } else
+                {
+                    jointsSaved[i]. targetAngle = jointsSaved[i]. startAngle;
+                    startMoving = true;
+                }
             }
-
-            startMoving = true;
         }
 
         protected virtual void RotateInFlight (int index)
@@ -550,7 +567,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             }
 
             float angle = Mathf. MoveTowards (jointsSaved[index]. currentAngle, jointsSaved[index]. targetAngle, Time. deltaTime * jointsSaved[index]. rotaSpeed);
-            part. gameObject. GetChild (jointsSaved[index]. jointTransformName). transform. localRotation = Quaternion. AngleAxis (angle, jointsSaved[index]. axis);
+            jointTransforms[index]. localRotation = Quaternion. AngleAxis (angle, jointsSaved[index]. axis);
             jointsSaved[index]. currentAngle = angle;
         }
 
@@ -571,8 +588,9 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
 
             float angle = Mathf. Clamp (joint. targetAngle, joint. minMaxRotationAngle. x, joint. minMaxRotationAngle. y);
             Quaternion rotation = Quaternion. AngleAxis (angle, joint. axis);
-            part. gameObject. GetChild (joint. jointTransformName). transform. localRotation = rotation;
-            jointsSaved[index]. currentAngle = joint. targetAngle;
+            jointTransforms[index]. localRotation = rotation;
+            jointsSaved[index]. currentAngle = angle;
+            jointsSaved[index]. startAngle = angle;
         }
 
         protected virtual void StartAutoControl ()
@@ -790,7 +808,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
         /// </summary>
         /// <param name="node">cfg 中这个 MODULE 的存储节点</param>
         /// <returns>SaveJointInfo[] 数组</returns>
-        private SaveJointInfo[] CreatJointInfoWithConfig (ConfigNode node)
+        private SaveJointInfo[] CreateJointInfoWithConfig (ConfigNode node)
         {
             if ( jointsPartArray == "" )
             {
@@ -819,7 +837,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                 {
                     if ( jointsPartNames[j] == jointPartName )
                     {
-                        jointInfos[j] = CreatJointsInfo (readNodes[i]);
+                        jointInfos[j] = CreateJointsInfo (readNodes[i]);
                         if ( string. IsNullOrEmpty (jointInfos[j]. name) )
                         {
                             return new SaveJointInfo[0];
@@ -833,7 +851,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
             return jointInfos;
         }
 
-        private SaveJointInfo CreatJointsInfo (ConfigNode configNode)
+        private SaveJointInfo CreateJointsInfo (ConfigNode configNode)
         {
             try
             {
@@ -857,6 +875,7 @@ namespace ChinaAeroSpaceNearFuturePackage. CASNFPParts. ArmParts
                     rotaSpeed = float. Parse (configNode. GetValue ("rotaSpeed")),
                     startAngle = angle,
                     targetAngle = angle,
+                    cfgAngle = angle,
                     currentAngle = angle
                 };
                 return jointInfo;
